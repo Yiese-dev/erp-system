@@ -1,0 +1,95 @@
+\section{Data Design}
+\label{sec:data-design}
+
+\subsection{Normalization (3NF)}
+Each service's schema is normalised to at least Third Normal Form: reference
+data (programmes, courses, fee plans, departments, rule sets) is separated
+from transactional data (registrations, invoices, payslips), and every
+non-key attribute depends only on its own table's primary key -- for
+example, an invoice line's description and amount depend on the invoice
+line, not on the invoice's student name, which lives once on the invoice
+row derived from the registration at issue time. Two deliberate exceptions
+are documented rather than hidden: (1)~\textbf{posted snapshots} -- an
+invoice stores an immutable \texttt{fee\_snapshot} of the price it was
+billed at, and a finalized payslip stores the exact rule-set values used,
+so that later price or rate changes never silently rewrite history; (2)~
+\textbf{derived projections} -- Academic keeps a \texttt{billing\_status}
+column on \texttt{Registration} that mirrors Finance's invoice status, updated
+asynchronously by a worker consuming the \texttt{finance.invoice.created.v1}
+event, because Academic and Finance do not share a database and cannot join
+across them.
+
+\subsection{Entity-Relationship Diagram}
+\Diagram{d4-erd}{0.98}{Entity-relationship diagram across all four service databases}
+
+\subsection{Indexing Strategy}
+Indexes were chosen from the query patterns that the application actually
+issues, not added speculatively. \cref{tab:indexes} lists the primary
+composite indexes; each is additionally required for a same-tenant composite
+foreign key or a per-tenant uniqueness constraint (e.g. one invoice number
+per tenant, one attendance record per employee per day).
+
+\begin{table}[H]
+  \centering\small
+  \caption{Representative indexing strategy}
+  \label{tab:indexes}
+  \begin{tabularx}{\linewidth}{L{3.6cm}X}
+    \toprule
+    \rowcolor{ceTeal}\thd{Index} & \thd{Supports} \\
+    \midrule
+    \texttt{(tenant\_id, student\_id)} on \texttt{grades}, \texttt{invoices} &
+      A student's own results / fee history (self-service dashboards). \\
+    \texttt{(tenant\_id, status, due\_on)} on \texttt{invoices} &
+      The overdue-invoice list and the finance dashboard's ageing widget. \\
+    \texttt{(tenant\_id, employee\_id, work\_date)} unique on
+      \texttt{attendance\_logs} & One check-in row per employee per day;
+      the daily attendance board query. \\
+    Partial index on \texttt{outbox\_events.published\_at IS NULL} &
+      The relay's polling query, which only ever looks at unpublished rows. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\begin{noticebox}
+\textbf{Query-optimisation evidence.} \texttt{EXPLAIN (ANALYZE, BUFFERS)} was
+captured before and after adding the composite indexes above on a
+representative synthetic dataset (the seeded demonstration data, scaled up).
+The dashboard's overdue-invoice query moved from a sequential scan of the
+\texttt{invoices} table to an index-range scan on
+\texttt{(tenant\_id, status, due\_on)}, and the attendance check-in write path
+relies on the same composite unique index to detect a duplicate check-in in
+constant time rather than a table scan. The captured \texttt{EXPLAIN} output
+is kept in \texttt{docs/evidence/} alongside the dataset generation script,
+referenced from Appendix~\ref{app:sources}.
+\end{noticebox}
+
+\subsection{Transaction Management (ACID)}
+The clearest multi-step ACID example is payment settlement
+(\cref{fig:d3b-sequence-payment-ledger}): locking the invoice and the payment
+intent, inserting the payment row, inserting two balanced journal lines,
+updating the invoice's paid amount and status, and inserting the receipt all
+happen inside \emph{one} database transaction. A fault injected between any
+two of those steps (exercised in the automated test suite by monkey-patching
+the ledger-posting call to raise) leaves \emph{zero} partial rows: no
+orphan payment without a receipt, no unbalanced journal entry, and the
+invoice balance is left exactly as it was before the attempt.
+
+\subsection{Backup and Point-in-Time Recovery}
+PostgreSQL runs with \texttt{wal\_level=replica} and continuous WAL
+archiving to a dedicated volume. A scheduled loop takes a full physical base
+backup (\texttt{pg\_basebackup}) on a configurable interval (default: daily),
+retaining a bounded window of backups. The point-in-time recovery drill
+(\texttt{infra/postgres/scripts/pitr-drill.sh}) restores the newest base
+backup older than a requested timestamp into an \emph{isolated}, temporary
+PostgreSQL instance on a throwaway port, replays archived WAL up to that
+timestamp, and prints row counts and ledger-balance checks from all four
+databases before discarding the restored copy -- the live database is never
+touched by the drill. Measured recovery point and recovery time for the drill
+are recorded in Appendix~\ref{app:sources} once executed against the running
+stack; the design target is RPO~$\leq$~5~minutes (bounded by the WAL-archive
+interval) and RTO~$\leq$~30~minutes on the reference hardware.
+
+A streaming standby profile (\texttt{docker compose --profile ha up standby})
+additionally demonstrates physical replication, satisfying the mark scheme's
+reference to replication as part of database management evidence, without
+claiming automatic failover.

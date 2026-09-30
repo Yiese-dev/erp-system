@@ -1,0 +1,113 @@
+\section{Overall Description}
+\label{sec:overall-description}
+
+\subsection{Product Perspective}
+Campus ERP is a new, self-contained system composed of four independently
+deployable services behind one API gateway (\cref{fig:d5-deployment}). It does
+not integrate with any pre-existing institutional system; it is designed so
+that each domain service could, in principle, be developed, tested, deployed
+and scaled by a separate team without touching the others' code or database.
+
+\subsection{Product Functions}
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Identity \& Access}: multi-tenant sign-in, role-based
+    permissions, session and refresh-token lifecycle, tenant and user
+    administration.
+  \item \textbf{Academic}: programme/course catalogue with prerequisites,
+    term registration, gradebook, attendance, conflict-checked examination
+    scheduling, result publication, grade appeals, at-risk flagging,
+    transcript/attendance PDF export.
+  \item \textbf{Marketing \& Finance}: fee plans, tuition invoicing (driven by
+    Academic registration events), simulated mobile-money payments, digital
+    receipts, expense approval workflow, marketing campaign/lead tracking with
+    ROI, automated monthly financial reporting, general ledger.
+  \item \textbf{Administration \& HR}: employee records, recruitment pipeline,
+    statutory payroll (CNPS/IRPP), QR-based attendance, leave management,
+    performance reviews, asset and inventory tracking, notifications.
+\end{itemize}
+
+\subsection{User Classes and Characteristics}
+\begin{longtable}{L{2.6cm}L{11.5cm}}
+  \toprule
+  \rowcolor{ceTeal}\thd{Role} & \thd{Characteristics and typical tasks} \\
+  \midrule
+  \endhead
+  Super Admin & Platform-level operator; provisions institutions (tenants) and
+    their first administrator. Does not gain implicit access to any tenant's
+    business data. \\
+  Admin & Institution administrator; manages the academic catalogue, users and
+    roles within their own tenant. \\
+  Instructor & Manages courses they are assigned to: gradebook, attendance,
+    exam scheduling, appeal review. Cannot see or modify other instructors'
+    courses. \\
+  Finance Officer & Manages fee plans, payments, expenses, campaigns and
+    reports for their tenant. \\
+  HR Officer & Manages employees, recruitment, payroll, leave, performance and
+    assets for their tenant. \\
+  Employee & Self-service: QR check-in/out, leave requests, payslips,
+    performance history -- limited to their own records. \\
+  Student & Self-service: course results, exam timetable, grade appeals,
+    tuition payment, transcript download -- limited to their own records. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{Operating Environment}
+The system runs as Docker containers orchestrated by \texttt{docker compose}
+on a single host for this course deliverable (a streaming standby and a
+horizontal-scaling story are documented conceptually in
+\cref{sec:nfr-testing-devops}). The frontend is a modern evergreen browser;
+the API is consumed over HTTPS. All displayed dates and times use the
+Africa/Douala timezone (WAT, UTC+1); all money values are stored as integer
+FCFA and displayed accordingly.
+
+\subsection{Design and Implementation Constraints}
+The brief's mandatory architectural constraints, and how Campus ERP satisfies
+each, are summarised in \cref{tab:constraints}.
+
+\begin{table}[H]
+  \centering
+  \caption{Mandatory architectural constraints and how they are satisfied}
+  \label{tab:constraints}
+  \begin{tabularx}{\linewidth}{L{5.1cm}X}
+    \toprule
+    \rowcolor{ceTeal}\thd{Constraint} & \thd{Implementation} \\
+    \midrule
+    $\geq$3 independently deployable microservices, database-per-service &
+      Four services (Identity, Academic, Finance, HR), each with its own
+      PostgreSQL database and least-privilege runtime role. \\
+    API Gateway: routing, auth delegation, rate limiting &
+      NGINX terminates TLS, routes \texttt{/api/v1/*} by prefix, delegates
+      session validation via \texttt{auth\_request}, and enforces per-IP rate
+      limits (general traffic and a stricter limit on login/refresh). \\
+    Asynchronous messaging for $\geq$1 cross-module workflow &
+      RabbitMQ topic exchange \texttt{campus.events}; Academic publishes
+      \texttt{academic.enrollment.confirmed.v1} via a transactional outbox,
+      Finance consumes it idempotently to create the tuition invoice
+      (\cref{fig:d3a-sequence-enrollment-invoice}). \\
+    Containers + \texttt{docker-compose}, one-command startup &
+      A Dockerfile per service (and per worker), a gateway image bundling the
+      built frontend, and one \texttt{docker-compose.yml} bringing up the
+      full stack including PostgreSQL, RabbitMQ, observability and backup
+      services. \\
+    CI/CD pipeline running tests and building images on every push to main &
+      GitHub Actions workflow: lint, per-service test + coverage gate, frontend
+      build, then multi-service image build on \texttt{main}. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Assumptions and Dependencies}
+\begin{itemize}[leftmargin=1.4em]
+  \item Mobile-money payment is demonstrated with a disclosed simulator that
+    mimics the MTN MoMo / Orange Money request-to-pay and signed-callback
+    flow; no real sandbox credentials were available, and the brief
+    explicitly permits a mocked equivalent.
+  \item Statutory payroll rates (CNPS, IRPP/PAYE, CAC) are implemented as an
+    editable, source-cited rule set that must be reviewed and approved by an
+    HR officer before payroll can run -- see the governance note in
+    \cref{sec:hr-module} and sources in Appendix~\ref{app:sources}.
+  \item The local deployment target is a single Docker host; a streaming
+    standby profile is included for the backup/recovery story, but automatic
+    failover is out of scope.
+  \item All demonstration data (institutions, staff, students) is synthetic.
+\end{itemize}

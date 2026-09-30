@@ -1,0 +1,107 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #E1F0EC
+  BorderColor #00695F
+  ArrowColor #00695F
+  FontColor #243134
+}
+skinparam actor {
+  BorderColor #00695F
+  FontColor #243134
+}
+skinparam rectangle {
+  BackgroundColor #F8FAF9
+  BorderColor #5B6B6E
+}
+left to right direction
+
+actor "Super Admin" as SuperAdmin
+actor "Tenant Admin" as Admin
+actor Instructor
+actor "Finance Officer" as Finance
+actor "HR Officer" as HR
+actor Employee
+actor Student
+actor "Mobile Money\nProvider" as Provider #B44C3B
+actor "SMTP Relay" as SMTP #B44C3B
+
+rectangle "Campus ERP" {
+  rectangle "Identity & Access" {
+    usecase "Sign in / refresh session" as UC1
+    usecase "Manage users & roles" as UC2
+    usecase "Provision institution (tenant)" as UC3
+  }
+
+  rectangle "Academic" {
+    usecase "Manage programmes & courses" as UC4
+    usecase "Register student for term" as UC5
+    usecase "Record grades & attendance" as UC6
+    usecase "Schedule examination" as UC7
+    usecase "Publish results" as UC8
+    usecase "Submit / decide grade appeal" as UC9
+    usecase "View at-risk students" as UC10
+    usecase "Download transcript" as UC11
+  }
+
+  rectangle "Marketing & Finance" {
+    usecase "Configure fee plan" as UC12
+    usecase "Pay tuition (mobile money)" as UC13
+    usecase "Record manual payment" as UC14
+    usecase "Manage expenses" as UC15
+    usecase "Track marketing campaign & leads" as UC16
+    usecase "View monthly financial report" as UC17
+  }
+
+  rectangle "Administration & HR" {
+    usecase "Manage employee record" as UC18
+    usecase "Run recruitment pipeline" as UC19
+    usecase "Approve / run payroll" as UC20
+    usecase "Check in / out (QR)" as UC21
+    usecase "Request / approve leave" as UC22
+    usecase "Conduct performance review" as UC23
+    usecase "Manage assets & inventory" as UC24
+  }
+}
+
+SuperAdmin --> UC3
+Admin --> UC2
+Admin --> UC4
+Admin --> UC12
+
+Instructor --> UC6
+Instructor --> UC7
+Instructor --> UC8
+Instructor --> UC9
+
+Student --> UC1
+Student --> UC5
+Student --> UC10
+Student --> UC11
+Student --> UC13
+Student --> UC9
+
+Finance --> UC12
+Finance --> UC14
+Finance --> UC15
+Finance --> UC16
+Finance --> UC17
+
+HR --> UC18
+HR --> UC19
+HR --> UC20
+HR --> UC22
+HR --> UC23
+HR --> UC24
+
+Employee --> UC1
+Employee --> UC21
+Employee --> UC22
+
+UC13 ..> Provider : <<callback>>
+UC20 ..> SMTP : <<notify>>
+UC22 ..> SMTP : <<notify>>
+
+UC5 ..> UC12 : <<include>>\n(async invoice)
+@enduml

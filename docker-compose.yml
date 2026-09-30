@@ -363,8 +363,8 @@ services:
       context: .
       dockerfile: infra/gateway/Dockerfile
     ports:
-      - "8080:8080"
-      - "8443:8443"
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8443:8443"
     volumes:
       - app_tls:/etc/nginx/tls:ro
     networks:
@@ -390,6 +390,7 @@ services:
       - ./infra/observability/parsers.conf:/fluent-bit/etc/parsers.conf:ro
     networks:
       - data
+      - gateway
     restart: unless-stopped
 
   loki:
@@ -425,7 +426,7 @@ services:
     networks:
       - data
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     restart: unless-stopped
 
 networks:

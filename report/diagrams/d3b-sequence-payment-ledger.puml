@@ -1,0 +1,59 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+  ArrowColor #00695F
+  LifeLineBorderColor #5B6B6E
+  ParticipantBackgroundColor #F8E7E3
+  ParticipantBorderColor #B44C3B
+  ParticipantFontColor #243134
+  ActorBorderColor #00695F
+}
+title Mobile-Money Payment and Ledger Posting (ACID)
+
+actor Student
+participant "Finance API" as API
+participant "Simulated MoMo /\nOrange Gateway" as Gateway
+database "finance_db" as DB
+
+Student -> API: POST /invoices/{id}/payment-intents\n{provider, msisdn, amount, idempotencyKey}
+activate API
+API -> DB: SELECT invoice FOR UPDATE
+API -> DB: check idempotencyKey, outstanding balance
+API -> DB: insert PaymentIntent (status=pending)
+API -> Gateway: request-to-pay (reference, amount, callbackUrl)
+Gateway --> API: 202 Accepted (PENDING)
+API --> Student: intent id + status=pending
+deactivate API
+
+... a few seconds later (simulated network delay) ...
+
+Gateway -> Gateway: decide outcome by test MSISDN rule\n(ends in 0 = declined, 9 = timeout, else approved)
+Gateway -> API: POST /payment-webhooks/simulated/{tenant}\nbody + X-Timestamp + X-Signature (HMAC-SHA256)
+activate API
+API -> API: verify signature + timestamp window\n(reject if invalid -> 401)
+API -> DB: SELECT ProviderEvent by event_id
+alt duplicate callback
+  API --> Gateway: 200 {"status":"duplicate"}
+else new callback
+  API -> DB: SELECT intent FOR UPDATE
+  API -> DB: insert ProviderEvent
+  alt status = SUCCESSFUL and amount matches
+    API -> DB: BEGIN TRANSACTION
+    API -> DB: insert Payment
+    API -> DB: insert JournalEntry + 2 balanced JournalLine\n(debit cash/mobile-money, credit receivable)
+    API -> DB: update Invoice.paid, Invoice.status
+    API -> DB: insert Receipt
+    API -> DB: update PaymentIntent.status = succeeded
+    API -> DB: insert OutboxEvent (finance.payment.received.v1)
+    API -> DB: COMMIT
+    API --> Gateway: 200 {"status":"settled"}
+  else declined / amount mismatch
+    API -> DB: update PaymentIntent.status = failed
+    API --> Gateway: 200 {"status":"failed"}
+  end
+end
+deactivate API
+
+Student -> API: GET /payment-intents/{id}\n(poll every 2s)
+API --> Student: status + receipt number (if settled)
+@enduml

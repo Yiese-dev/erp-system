@@ -1,0 +1,53 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+  ArrowColor #00695F
+  LifeLineBorderColor #5B6B6E
+  ParticipantBackgroundColor #E1F0EC
+  ParticipantBorderColor #00695F
+  ParticipantFontColor #243134
+  ActorBorderColor #00695F
+}
+
+title Authentication, session validation and refresh-token rotation
+
+actor User
+participant "NGINX\nGateway" as GW
+participant "Identity API" as ID
+participant "Academic /\nFinance / HR API" as SVC
+database "identity_db" as IDB
+
+User -> GW: POST /api/v1/auth/login\n(tenant, email, password)
+GW -> ID: forward
+ID -> IDB: SELECT user, tenant, membership
+ID -> ID: verify Argon2id hash
+alt invalid credentials
+  ID --> User: 401 Invalid institution, email or password
+else too many recent failures
+  ID --> User: 429 Account locked (15 min)
+else valid
+  ID -> IDB: INSERT session, refresh_token (hashed)
+  ID --> User: 200 { access_token (10 min JWT), Set-Cookie: refresh+csrf }
+end
+
+User -> GW: GET /api/v1/academic/dashboard\n(Authorization: Bearer <JWT>)
+GW -> ID: /_auth (auth_request, cached 10s)
+ID -> ID: verify JWT signature + claims
+ID -> IDB: SELECT session (must be valid, not revoked)
+ID --> GW: 200 (subject, tenant, role)
+GW -> SVC: forward original request
+SVC -> SVC: re-verify JWT locally + enforce\ntenant scope & permission
+SVC --> User: 200 dashboard data
+
+... 10 minutes later: access token expired ...
+
+User -> ID: POST /api/v1/auth/refresh\n(Cookie: refresh token, X-CSRF-Token)
+alt token already used (replay)
+  ID -> IDB: revoke entire session family
+  ID --> User: 401 Session reuse detected
+else first use
+  ID -> IDB: UPDATE refresh_token.used = true
+  ID -> IDB: INSERT new refresh_token (rotated)
+  ID --> User: 200 { new access_token }
+end
+@enduml

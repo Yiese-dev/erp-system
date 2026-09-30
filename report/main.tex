@@ -1,0 +1,82 @@
+\documentclass[11pt,a4paper]{article}
+\input{preamble}
+
+\title{\vspace{-2em}}
+\date{}
+\author{}
+
+\begin{document}
+
+% ================= TITLE PAGE =================
+\begin{titlepage}
+  \newgeometry{margin=2.2cm}
+  \begin{tikzpicture}[remember picture, overlay]
+    \fill[ceTeal] (current page.north west) rectangle ([yshift=-3.6cm]current page.north east);
+    \fill[ceCoral] ([yshift=-3.6cm]current page.north west) rectangle ([yshift=-3.75cm]current page.north east);
+  \end{tikzpicture}
+  \vspace{1.0cm}
+  \begin{center}
+    {\color{white}\Huge\bfseries Campus ERP}\\[6pt]
+    {\color{white}\large Multi-Tenant Microservices ERP for Academic, Marketing \& Finance,\\ and Administration \& Human Resource Management}
+  \end{center}
+  \vspace{2.6cm}
+  \begin{center}
+    {\Large\bfseries\color{ceTealDark} Software Requirements Specification\\ and Technical Report}\\[4pt]
+    {\normalsize\color{ceMuted} Aligned with ISO/IEC/IEEE 29148}
+  \end{center}
+
+  \vspace{2.0cm}
+  \begin{center}
+  \renewcommand{\arraystretch}{1.5}
+  \begin{tabular}{L{4.2cm}L{8.5cm}}
+    \thd{}\textbf{\color{ceTealDark}Course Title} & Large System Environment \\
+    \textbf{\color{ceTealDark}Course Code} & SEN4121 \\
+    \textbf{\color{ceTealDark}Session} & Summer 2026 \\
+    \textbf{\color{ceTealDark}Instructor} & Engr. Tanwi Nkiamboh \\
+    \textbf{\color{ceTealDark}Prepared by} & CHII BENEDICTA YIESE \\
+    \textbf{\color{ceTealDark}Matricule} & ICTU20251667 \\
+    \textbf{\color{ceTealDark}Document Version} & 1.0 \\
+    \textbf{\color{ceTealDark}Date} & \today \\
+  \end{tabular}
+  \end{center}
+
+  \vfill
+  \begin{center}
+    \begin{tcolorbox}[enhanced, colback=ceMist, colframe=ceLine, width=0.85\linewidth,
+                       arc=3pt, boxrule=0.6pt]
+      \small\color{ceMuted}
+      \textbf{\color{ceTealDark}Academic integrity statement.}\ This report documents an
+      architecture co-designed with AI pair-programming assistance (GitHub Copilot)
+      for scaffolding, refactoring, and documentation drafting, as disclosed under the
+      module's academic integrity policy. All architectural decisions, verification
+      results, and statements of project status in this document were reviewed by the
+      author. Reused third-party libraries are cited in Appendix~\ref{app:sources}.
+    \end{tcolorbox}
+  \end{center}
+  \restoregeometry
+\end{titlepage}
+
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+\pagenumbering{arabic}
+
+\input{sections/01-introduction}
+\input{sections/02-overall-description}
+\input{sections/03-architecture}
+\input{sections/04-security}
+\input{sections/05-data-design}
+\input{sections/06-uml-suite}
+\input{sections/07-module-academic}
+\input{sections/08-module-finance}
+\input{sections/09-module-hr}
+\input{sections/10-nfr-testing-devops}
+\input{sections/11-limitations-integrity}
+\appendix
+\input{sections/12-appendices}
+
+\end{document}

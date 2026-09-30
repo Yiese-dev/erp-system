@@ -1,0 +1,94 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam node {
+  BackgroundColor #F8FAF9
+  BorderColor #5B6B6E
+  FontColor #243134
+}
+skinparam database {
+  BackgroundColor #E1F0EC
+  BorderColor #00695F
+}
+skinparam queue {
+  BackgroundColor #F8E7E3
+  BorderColor #B44C3B
+}
+skinparam artifact {
+  BackgroundColor #E5EEF8
+  BorderColor #2864A0
+}
+
+node "Browser" as Browser
+
+node "Docker host (docker-compose)" {
+
+  node "gateway\n(NGINX, TLS)" as Gateway
+
+  node "identity\n(FastAPI)" as Identity
+  node "academic\n(FastAPI)" as Academic
+  node "finance\n(FastAPI)" as Finance
+  node "hr\n(FastAPI)" as HR
+
+  node "academic-worker" as AcademicWorker
+  node "finance-worker" as FinanceWorker
+  node "hr-worker" as HRWorker
+
+  node "momo-simulator\n(FastAPI)" as Simulator
+
+  queue "rabbitmq\n(campus.events exchange)" as Broker
+
+  database "postgres\n(identity_db, academic_db,\nfinance_db, hr_db)" as Postgres
+  node "standby\n(streaming replica)" as Standby
+  node "backup\n(pgBackRest-style loop)" as Backup
+  artifact "wal-archive /\nbackups volumes" as WalArchive
+
+  node "mailpit\n(SMTP)" as Mailpit
+
+  node "fluent-bit" as FluentBit
+  database "loki" as Loki
+  node "prometheus" as Prometheus
+  node "grafana" as Grafana
+}
+
+Browser --> Gateway : HTTPS 8443
+Gateway --> Identity : /api/v1/auth, /api/v1/platform
+Gateway --> Academic : /api/v1/academic
+Gateway --> Finance : /api/v1/finance
+Gateway --> HR : /api/v1/hr
+Gateway --> Simulator : /payment-webhooks callback origin
+
+Identity --> Postgres
+Academic --> Postgres
+Finance --> Postgres
+HR --> Postgres
+
+Academic --> AcademicWorker : shares academic_db
+Finance --> FinanceWorker : shares finance_db
+HR --> HRWorker : shares hr_db
+
+AcademicWorker --> Broker : publish / consume
+FinanceWorker --> Broker : publish / consume
+HRWorker --> Mailpit : SMTP (notifications)
+
+Finance --> Simulator : request-to-pay
+Simulator --> Gateway : signed webhook callback
+
+Postgres --> Standby : streaming replication
+Postgres --> WalArchive : continuous WAL archiving
+Backup --> Postgres : pg_basebackup (scheduled)
+Backup --> WalArchive
+
+Identity --> FluentBit : structured logs (syslog)
+Academic --> FluentBit
+Finance --> FluentBit
+HR --> FluentBit
+Gateway --> FluentBit
+FluentBit --> Loki
+Prometheus --> Identity : scrape /metrics
+Prometheus --> Academic
+Prometheus --> Finance
+Prometheus --> HR
+Prometheus --> Broker : scrape (management plugin)
+Grafana --> Prometheus
+Grafana --> Loki
+@enduml

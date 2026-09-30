@@ -1,0 +1,89 @@
+\section{Introduction}
+\label{sec:introduction}
+
+\subsection{Purpose}
+This document is the Software Requirements Specification (SRS) and accompanying
+technical report for \textbf{Campus ERP}, a production-oriented, multi-tenant
+Enterprise Resource Planning system built for the SEN4121 (Large System
+Environment) project brief. It specifies the functional and non-functional
+requirements of the system, documents the architecture that satisfies the
+brief's mandatory microservices constraints, and reports the verification
+evidence collected against those requirements. The document is structured to
+follow ISO/IEC/IEEE~29148 guidance for content, adapted to the length and
+audience of a course deliverable.
+
+\subsection{Scope}
+Campus ERP is decomposed into four independently deployable microservices --
+\textbf{Identity}, \textbf{Academic}, \textbf{Marketing \& Finance}, and
+\textbf{Administration \& Human Resources} -- each with its own PostgreSQL
+database, fronted by a single NGINX API gateway, and connected for one
+cross-module workflow via asynchronous messaging over RabbitMQ. The system
+supports multiple independent institutions (tenants) from one deployment,
+with every tenant's data fully isolated at the database layer. The scope
+covers the three domains required by the brief (Academic; Marketing \&
+Finance; Administration \& HR), the mandatory security, data, messaging and
+DevOps constraints, and the supporting React single-page application.
+
+Explicitly out of scope for this submission: real mobile-money settlement
+(a signed, disclosed simulator stands in for MTN MoMo / Orange Money),
+real biometric hardware (a signed, time-boxed QR challenge is used instead,
+as permitted by the brief), multi-factor authentication and Kubernetes
+manifests (both listed as optional bonus work), and any legally binding
+certification that the implemented payroll rates satisfy current
+Cameroonian tax law -- see the statutory rate governance note in
+\cref{sec:hr-module}.
+
+\subsection{Definitions, Acronyms and Abbreviations}
+\begin{longtable}{L{3.3cm}L{11cm}}
+  \toprule
+  \rowcolor{ceTeal}\thd{Term} & \thd{Definition} \\
+  \midrule
+  \endhead
+  Tenant & An institution using Campus ERP; all tenant-owned data is isolated
+    by \texttt{tenant\_id} and PostgreSQL row-level security. \\
+  RLS & Row-Level Security -- a PostgreSQL feature that restricts which rows a
+    query may see or modify based on the active session's tenant context. \\
+  RBAC & Role-Based Access Control. \\
+  JWT & JSON Web Token, used for short-lived API access tokens. \\
+  Outbox / Inbox & A reliability pattern where a producer writes an event in
+    the same database transaction as its business change (outbox), and a
+    consumer records processed event IDs to guarantee idempotent handling
+    (inbox). \\
+  CNPS & Caisse Nationale de Pr\'evoyance Sociale -- Cameroon's national social
+    insurance fund (pension, family allowance, work-injury contributions). \\
+  IRPP / PAYE & Imp\^ot sur le Revenu des Personnes Physiques -- Cameroon's
+    personal income tax, withheld monthly (Pay-As-You-Earn). \\
+  CAC & Centimes Additionnels Communaux -- an additional council tax levied as
+    a percentage of IRPP. \\
+  FCFA / XAF & Franc CFA (BEAC), the currency used throughout the system. \\
+  WAT & West Africa Time (UTC+1), the timezone used for all displayed dates. \\
+  PITR & Point-In-Time Recovery. \\
+  RPO / RTO & Recovery Point / Time Objective. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{References}
+\begin{itemize}[leftmargin=1.4em]
+  \item ISO/IEC/IEEE 29148:2018, \textit{Systems and software engineering --
+    Life cycle processes -- Requirements engineering}.
+  \item SEN4121 Large System Environment, Summer 2026 project brief (course
+    handout), Faculty of Information and Communication Technologies.
+  \item OWASP Top 10:2021, \textit{The Ten Most Critical Web Application
+    Security Risks}.
+  \item Direction G\'en\'erale des Imp\^ots (DGI), \textit{Code G\'en\'eral des
+    Imp\^ots} and 2026 Finance Law circular -- see Appendix~\ref{app:sources}
+    for the exact publications consulted for payroll rates.
+  \item PostgreSQL 17, RabbitMQ 3.13, FastAPI, React and Vite official
+    documentation (implementation references).
+\end{itemize}
+
+\subsection{Document Overview}
+\cref{sec:overall-description} gives the product perspective, user classes and
+constraints. \cref{sec:architecture} presents the microservices architecture.
+\cref{sec:security} and \cref{sec:data-design} cover security and data design.
+\cref{sec:uml-suite} contains the full UML diagram suite. Sections~7--9 walk
+through the Academic, Finance \& Marketing, and Administration \& HR modules
+with functional requirements and screenshots. \cref{sec:nfr-testing-devops}
+reports non-functional, testing and DevOps evidence. \cref{sec:limitations}
+states honest limitations and the academic-integrity disclosure. The
+appendices hold the requirement traceability matrix and cited sources.

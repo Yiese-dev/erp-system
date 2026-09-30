@@ -71,7 +71,7 @@ export default function Login() {
           <Button type="submit" busy={busy} className="btn-block" disabled={!tenant || !email || !password}>Sign in</Button>
           <p className="small muted">Accounts lock for 15 minutes after five failed attempts.</p>
         </form>
-        <div className="demo-accounts">
+        {import.meta.env.DEV && <div className="demo-accounts">
           <h3>Demonstration accounts · institutions <code>ictu</code> and <code>atlantic</code></h3>
           <div className="demo-grid">
             {DEMO.map(([address, role]) => (
@@ -82,7 +82,7 @@ export default function Login() {
             ))}
           </div>
           <p className="small muted" style={{ marginTop: 6 }}>Synthetic data only. Password for every demo account: <code>{DEMO_PASSWORD}</code></p>
-        </div>
+        </div>}
       </section>
     </div>
   )

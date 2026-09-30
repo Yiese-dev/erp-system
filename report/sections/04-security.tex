@@ -1,0 +1,104 @@
+\section{Security Design}
+\label{sec:security}
+
+\subsection{Authentication and Session Lifecycle}
+Passwords are hashed with Argon2id. On successful sign-in, Identity issues a
+short-lived (10-minute) RS256-signed JWT access token carrying the subject,
+tenant, role and permission set, plus an opaque refresh token delivered as an
+\texttt{HttpOnly}, \texttt{Secure}, \texttt{SameSite=Strict} cookie. Refresh
+tokens are stored server-side only as a salted hash, rotate on every use, and
+are tracked in families: replaying an already-used refresh token revokes the
+entire family and forces re-authentication
+(\cref{fig:d3c-sequence-auth}). Sessions carry an absolute lifetime (8~hours)
+and an idle timeout (30~minutes), independent of the access-token expiry, so a
+revoked or expired session is rejected by Identity's validation endpoint even
+if an access token has not yet expired. Five consecutive failed password
+attempts lock the account for 15~minutes, tracked atomically per user.
+
+\subsection{Authorization}
+Every permission check happens twice: the frontend hides controls the active
+role cannot use (usability), and every API handler independently re-checks
+the caller's permission set and resource ownership from the validated JWT
+claims -- never from a client-supplied header, query parameter or body field.
+\cref{tab:rbac} summarises the role/permission matrix.
+
+\begin{table}[H]
+  \centering\small
+  \caption{Role-permission matrix (abridged)}
+  \label{tab:rbac}
+  \begin{tabularx}{\linewidth}{L{2.1cm}L{1.9cm}L{1.9cm}L{1.9cm}L{1.9cm}X}
+    \toprule
+    \rowcolor{ceTeal}\thd{Role} & \thd{Academic} & \thd{Finance} & \thd{HR} & \thd{Platform} & \thd{Notes} \\
+    \midrule
+    Super Admin & -- & -- & -- & manage & Provisions tenants only. \\
+    Admin & read/write & read/write & read/write & -- & Scoped to own tenant. \\
+    Instructor & read/teach & -- & self & -- & Own assigned offerings only. \\
+    Finance Officer & catalogue read & read/write & self & -- & \\
+    HR Officer & -- & -- & read/write, self & -- & \\
+    Employee & -- & -- & self & -- & Own records only. \\
+    Student & self & self & -- & -- & Own records only. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Multi-Tenant Isolation}
+Every tenant-owned table carries a \texttt{tenant\_id} column. Isolation is
+enforced in two independent layers: (1)~the application sets the active
+tenant as transaction-local PostgreSQL state
+(\texttt{set\_config('app.tenant\_id', \dots, true)}) and every query carries
+an explicit tenant predicate; (2)~PostgreSQL row-level security policies with
+\texttt{FORCE ROW LEVEL SECURITY} additionally block any row whose
+\texttt{tenant\_id} does not match the session variable, even if application
+code were to omit a predicate by mistake. The database runtime role used by
+each service has no table ownership and no \texttt{BYPASSRLS} attribute.
+Automated tests assert that an authenticated user of tenant~A receives a
+non-disclosing 404 (not the record) when requesting any object ID that
+belongs to tenant~B, across every list, detail, export and dashboard
+aggregate endpoint exercised in the test suite.
+
+\subsection{OWASP Top~10 (2021) Mitigation Summary}
+\begin{table}[H]
+  \centering\small
+  \caption{OWASP Top 10 (2021) mitigation evidence}
+  \label{tab:owasp}
+  \begin{tabularx}{\linewidth}{L{4.3cm}X}
+    \toprule
+    \rowcolor{ceTeal}\thd{Risk} & \thd{Mitigation and evidence} \\
+    \midrule
+    A01 Broken Access Control & Row-level security + explicit ownership checks
+      on every handler; automated cross-tenant denial tests. \\
+    A02 Cryptographic Failures & Argon2id password hashing, RS256 JWTs, TLS at
+      the gateway, secrets never logged, HMAC-signed webhook/QR payloads. \\
+    A03 Injection & SQLAlchemy parameterised queries everywhere; sort/filter
+      fields are validated against an explicit allow-list, not interpolated. \\
+    A07 Identification and Authentication Failures & Refresh-token rotation
+      with reuse detection, account lockout, session idle/absolute expiry,
+      generic authentication error messages. \\
+    A08 Software and Data Integrity Failures & Pinned dependency versions;
+      webhook and event payloads are schema-validated before use; no
+      \texttt{pickle} or other unsafe deserialization. \\
+    A09 Security Logging and Monitoring Failures & Structured, correlated
+      logs shipped to a central store (Loki) with request IDs; Prometheus
+      al-worthy metrics for error rate and broker backlog. \\
+    A05 Security Misconfiguration & Only the gateway publishes ports; database
+      and broker ports are on an internal Docker network; containers run as a
+      non-root user; strict CORS/allowed-origin checks. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Additionally, all cookie-authenticated state-changing endpoints
+(\texttt{/auth/refresh}, \texttt{/auth/logout}) require both an
+allow-listed \texttt{Origin} header and a matching CSRF token supplied
+out-of-band from the refresh cookie, mitigating CSRF; all API responses set
+\texttt{X-Content-Type-Options: nosniff} and a restrictive
+\texttt{Content-Security-Policy}, mitigating stored/reflected XSS in
+combination with React's default output escaping.
+
+\subsection{Transport and Webhook Security}
+The mobile-money simulator's callback is authenticated by an HMAC-SHA256
+signature over the request body and a timestamp, rejecting requests whose
+signature does not match or whose timestamp is outside a five-minute window
+-- never by a normal user session, since the caller is an external system.
+The QR attendance challenge is similarly a signed, tenant-bound, 60-second
+token, not a bare reusable employee identifier (\cref{sec:hr-module}).

@@ -1,0 +1,68 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+  ArrowColor #00695F
+  LifeLineBorderColor #5B6B6E
+  ParticipantBackgroundColor #E1F0EC
+  ParticipantBorderColor #00695F
+  ParticipantFontColor #243134
+  ActorBorderColor #00695F
+  BoxBackgroundColor #F3F6F5
+  BoxBorderColor #5B6B6E
+}
+title Enrollment-to-Invoice Asynchronous Workflow (cross-service)
+
+actor Student
+participant "Academic API" as AcademicAPI
+database "academic_db" as AcademicDB
+queue "RabbitMQ\n(campus.events)" as Broker
+participant "Academic Worker" as AcademicWorker
+participant "Finance Worker" as FinanceWorker
+participant "Finance API" as FinanceAPI
+database "finance_db" as FinanceDB
+
+Student -> AcademicAPI: POST /registrations\n{studentId, termId, offeringIds}
+activate AcademicAPI
+AcademicAPI -> AcademicAPI: validate prerequisites,\ncapacity, duplicates
+AcademicAPI -> AcademicDB: BEGIN TRANSACTION
+AcademicDB -> AcademicDB: insert Registration + Enrollment(s)
+AcademicDB -> AcademicDB: insert OutboxEvent\n(academic.enrollment.confirmed.v1)
+AcademicAPI -> AcademicDB: COMMIT
+AcademicAPI --> Student: 201 Created (registration)
+deactivate AcademicAPI
+
+group Outbox relay (polling loop)
+  AcademicWorker -> AcademicDB: SELECT unpublished outbox rows\nFOR UPDATE SKIP LOCKED
+  AcademicWorker -> Broker: publish (persistent, confirm)
+  Broker --> AcademicWorker: publisher ack
+  AcademicWorker -> AcademicDB: mark published_at
+end
+
+group Finance consumer (at-least-once, idempotent)
+  Broker -> FinanceWorker: deliver event
+  FinanceWorker -> FinanceDB: SELECT ProcessedEvent by event_id
+  alt already processed
+    FinanceWorker -> Broker: ack (no-op)
+  else new event
+    FinanceWorker -> FinanceDB: BEGIN TRANSACTION
+    FinanceWorker -> FinanceDB: SELECT active FeePlan\n(program, term)
+    alt fee plan found
+      FinanceWorker -> FinanceDB: insert Invoice + InvoiceLine\n+ JournalEntry (receivable/revenue)
+      FinanceWorker -> FinanceDB: insert ProcessedEvent
+      FinanceWorker -> FinanceDB: insert OutboxEvent\n(finance.invoice.created.v1)
+      FinanceWorker -> FinanceDB: COMMIT
+      FinanceWorker -> Broker: ack
+    else no fee plan
+      FinanceWorker -> FinanceDB: insert BillingIssue (status=open)
+      FinanceWorker -> FinanceDB: COMMIT
+      FinanceWorker -> Broker: ack
+    end
+  end
+end
+
+Broker -> AcademicWorker: deliver finance.invoice.created.v1
+AcademicWorker -> AcademicDB: update Registration.billingStatus\n= "invoiced" (projection)
+AcademicWorker -> Broker: ack
+
+FinanceAPI --> Student: GET /finance/invoices\n(invoice now visible)
+@enduml

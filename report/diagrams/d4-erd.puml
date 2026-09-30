@@ -1,0 +1,212 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam linetype ortho
+hide circle
+skinparam class {
+  BackgroundColor #F8FAF9
+  BorderColor #00695F
+  FontColor #243134
+  HeaderBackgroundColor #E1F0EC
+}
+skinparam package {
+  BackgroundColor #F3F6F5
+  BorderColor #5B6B6E
+  FontColor #00695F
+  FontStyle bold
+}
+
+package "identity_db" #E1F0EC {
+  entity Tenant {
+    * id : varchar <<PK>>
+    --
+    slug : varchar <<UK>>
+    name : varchar
+    active : boolean
+  }
+  entity "User" as IdUser {
+    * id : varchar <<PK>>
+    --
+    email : varchar <<UK>>
+    password_hash : varchar
+    failed_attempts : int
+    locked_until : int
+  }
+  entity Membership {
+    * id : varchar <<PK>>
+    --
+    tenant_id : varchar <<FK>>
+    user_id : varchar <<FK>>
+    role : varchar
+  }
+  entity LoginSession {
+    * id : varchar <<PK>>
+    --
+    user_id : varchar <<FK>>
+    tenant_id : varchar <<FK>>
+    expires_at : int
+    revoked : boolean
+  }
+  Tenant ||--o{ Membership
+  IdUser ||--o{ Membership
+  IdUser ||--o{ LoginSession
+}
+
+package "academic_db" #E5EEF8 {
+  entity Program {
+    * id <<PK>>
+    --
+    code <<UK>>
+  }
+  entity Course {
+    * id <<PK>>
+    --
+    code <<UK>>
+    program_id <<FK>>
+  }
+  entity Term {
+    * id <<PK>>
+    --
+    name <<UK>>
+  }
+  entity Offering {
+    * id <<PK>>
+    --
+    course_id <<FK>>
+    term_id <<FK>>
+  }
+  entity "Student" as AcStudent {
+    * id <<PK>>
+    --
+    student_no <<UK>>
+    program_id <<FK>>
+  }
+  entity Registration {
+    * id <<PK>>
+    --
+    student_id <<FK>>
+    term_id <<FK>>
+  }
+  entity Enrollment {
+    * id <<PK>>
+    --
+    registration_id <<FK>>
+    offering_id <<FK>>
+  }
+  entity Result {
+    * id <<PK>>
+    --
+    offering_id <<FK>>
+    student_id <<FK>>
+    revision
+  }
+  Program ||--o{ Course
+  Program ||--o{ AcStudent
+  Course ||--o{ Offering
+  Term ||--o{ Offering
+  AcStudent ||--o{ Registration
+  Registration ||--o{ Enrollment
+  Offering ||--o{ Enrollment
+  Offering ||--o{ Result
+  AcStudent ||--o{ Result
+}
+
+package "finance_db" #F8E7E3 {
+  entity FeePlan {
+    * id <<PK>>
+    --
+    program_id
+    term_id
+  }
+  entity Invoice {
+    * id <<PK>>
+    --
+    number <<UK>>
+    registration_id <<UK>>
+  }
+  entity PaymentIntent {
+    * id <<PK>>
+    --
+    invoice_id <<FK>>
+    reference <<UK>>
+  }
+  entity Payment {
+    * id <<PK>>
+    --
+    invoice_id <<FK>>
+    intent_id <<FK>>
+  }
+  entity Receipt {
+    * id <<PK>>
+    --
+    payment_id <<FK,UK>>
+  }
+  entity JournalEntry {
+    * id <<PK>>
+  }
+  entity JournalLine {
+    * id <<PK>>
+    --
+    entry_id <<FK>>
+  }
+  FeePlan ||--o{ Invoice
+  Invoice ||--o{ PaymentIntent
+  PaymentIntent |o--o| Payment
+  Payment ||--|| Receipt
+  JournalEntry ||--o{ JournalLine
+}
+
+package "hr_db" #FBEFD6 {
+  entity Department {
+    * id <<PK>>
+    --
+    name <<UK>>
+  }
+  entity Employee {
+    * id <<PK>>
+    --
+    employee_no <<UK>>
+    department_id <<FK>>
+  }
+  entity RuleSet {
+    * id <<PK>>
+    --
+    status
+  }
+  entity PayrollRun {
+    * id <<PK>>
+    --
+    period <<UK>>
+    rule_set_id <<FK>>
+  }
+  entity Payslip {
+    * id <<PK>>
+    --
+    run_id <<FK>>
+    employee_id <<FK>>
+  }
+  entity LeaveRequest {
+    * id <<PK>>
+    --
+    employee_id <<FK>>
+  }
+  Department ||--o{ Employee
+  RuleSet ||--o{ PayrollRun
+  PayrollRun ||--o{ Payslip
+  Employee ||--o{ Payslip
+  Employee ||--o{ LeaveRequest
+}
+
+note bottom of Invoice
+  registration_id is a business
+  key referencing academic_db.Registration.id
+  (no physical cross-database FK: enforced
+  by the async billing workflow instead)
+end note
+
+note bottom of Payslip
+  Every table above additionally
+  carries tenant_id and a
+  PostgreSQL row-level-security
+  policy (omitted here for clarity)
+end note
+@enduml

@@ -1,0 +1,158 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam class {
+  BackgroundColor #F8FAF9
+  BorderColor #00695F
+  ArrowColor #00695F
+  FontColor #243134
+  HeaderBackgroundColor #E1F0EC
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #5B6B6E
+  FontColor #00695F
+  FontStyle bold
+}
+hide circle
+skinparam linetype ortho
+
+package "Identity Service" {
+  class Tenant {
+    +id: str
+    +slug: str
+    +name: str
+    +active: bool
+  }
+  class User {
+    +id: str
+    +email: str
+    +password_hash: str
+    +failed_attempts: int
+    +locked_until: int
+  }
+  class Membership {
+    +tenant_id: str
+    +user_id: str
+    +role: Role
+  }
+  class Session {
+    +id: str
+    +expires_at: int
+    +revoked: bool
+  }
+  Tenant "1" *-- "many" Membership
+  User "1" *-- "many" Membership
+  User "1" *-- "many" Session
+}
+
+package "Academic Service" {
+  class Program {
+    +code: str
+    +name: str
+  }
+  class Course {
+    +code: str
+    +credits: int
+  }
+  class Student {
+    +student_no: str
+    +name: str
+  }
+  class Registration {
+    +status: str
+    +billing_status: str
+  }
+  class Enrollment {
+    +status: str
+  }
+  class Result {
+    +score: float
+    +letter: str
+    +current: bool
+  }
+  class GradeAppeal {
+    +status: str
+    +reason: str
+  }
+  Program "1" o-- "many" Course
+  Student "1" -- "many" Registration
+  Registration "1" *-- "many" Enrollment
+  Enrollment "1" -- "0..1" Result
+  Result "1" -- "0..1" GradeAppeal
+}
+
+package "Finance Service" {
+  class FeePlan {
+    +amount: int
+    +due_days: int
+  }
+  class Invoice {
+    +number: str
+    +total: int
+    +status: str
+  }
+  class PaymentIntent {
+    +provider: str
+    +status: str
+  }
+  class Payment {
+    +amount: int
+    +method: str
+  }
+  class Receipt {
+    +number: str
+  }
+  class JournalEntry {
+    +entry_date: date
+  }
+  class Campaign {
+    +name: str
+    +budget: int
+  }
+  class Lead {
+    +stage: str
+  }
+  FeePlan ..> Invoice : prices
+  Invoice "1" *-- "many" PaymentIntent
+  PaymentIntent "1" -- "0..1" Payment
+  Payment "1" -- "1" Receipt
+  Payment "1" ..> JournalEntry : posts
+  Campaign "1" *-- "many" Lead
+}
+
+package "HR Service" {
+  class Employee {
+    +employee_no: str
+    +base_salary: int
+  }
+  class RuleSet {
+    +status: str
+    +rules: json
+  }
+  class PayrollRun {
+    +period: str
+    +status: str
+  }
+  class Payslip {
+    +gross: int
+    +net: int
+  }
+  class LeaveRequest {
+    +status: str
+    +days: int
+  }
+  class Asset {
+    +tag: str
+    +status: str
+  }
+  RuleSet ..> PayrollRun : applies to
+  PayrollRun "1" *-- "many" Payslip
+  Payslip "many" -- "1" Employee
+  Employee "1" -- "many" LeaveRequest
+  Employee "1" -- "many" Asset
+}
+
+Registration ..> Invoice : academic.enrollment.confirmed.v1\n(async, via RabbitMQ)
+User "1" .. "1" Student : linked by user_id
+User "1" .. "1" Employee : linked by user_id
+@enduml

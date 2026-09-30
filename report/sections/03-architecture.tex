@@ -1,0 +1,87 @@
+\section{Architecture}
+\label{sec:architecture}
+
+\subsection{Microservices Decomposition}
+Campus ERP is split along business-domain boundaries into four services, each
+owning its data exclusively (\cref{tab:services}). No service imports another
+service's ORM models or queries another service's database; all cross-service
+data sharing happens either through the gateway-routed REST APIs (synchronous,
+user-triggered) or through RabbitMQ events (asynchronous, system-triggered).
+
+\begin{table}[H]
+  \centering
+  \caption{Service ownership summary}
+  \label{tab:services}
+  \begin{tabularx}{\linewidth}{L{2.6cm}L{2.6cm}X}
+    \toprule
+    \rowcolor{ceTeal}\thd{Service} & \thd{Database} & \thd{Owns} \\
+    \midrule
+    Identity & \texttt{identity\_db} & Tenants, users, memberships, sessions,
+      refresh tokens. \\
+    Academic & \texttt{academic\_db} & Programmes, courses, terms, offerings,
+      students, registrations, grades, attendance, exams, results, appeals. \\
+    Finance & \texttt{finance\_db} & Fee plans, invoices, payments, receipts,
+      ledger, campaigns, leads, expenses, monthly reports. \\
+    HR & \texttt{hr\_db} & Employees, recruitment, payroll rule sets and runs,
+      attendance, leave, reviews, assets, inventory, notifications. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{API Gateway}
+A single NGINX gateway is the only publicly reachable entry point
+(\cref{fig:d5-deployment}). It: (1)~serves the built React application; (2)~
+routes \texttt{/api/v1/auth}, \texttt{/api/v1/platform}, \texttt{/api/v1/academic},
+\texttt{/api/v1/finance} and \texttt{/api/v1/hr} to the matching upstream by
+static Docker Compose service name; (3)~delegates authentication for protected
+routes to Identity via an internal \texttt{auth\_request} sub-request, whose
+result is cached for ten seconds to bound load on Identity; (4)~applies
+per-IP rate limiting -- a generous budget for general API traffic and a
+strict budget (10 requests/minute) for the login and refresh endpoints,
+independent of the account-lockout control described in
+\cref{sec:security}; and (5)~terminates TLS using a locally generated
+certificate for the course demonstration.
+
+\subsection{API Versioning and Documentation}
+Every route is namespaced under \texttt{/api/v1/}, allowing a future
+\texttt{/api/v2/} to be introduced without breaking existing clients. Each
+service publishes an OpenAPI schema and an interactive Swagger UI
+(\texttt{/api/v1/\{service\}/docs}), reachable through the gateway.
+
+\subsection{Service Discovery}
+Service discovery is a documented static registry: Docker Compose's embedded
+DNS resolves each service name (\texttt{identity}, \texttt{academic},
+\texttt{finance}, \texttt{hr}, \texttt{rabbitmq}, \texttt{postgres}) to its
+container, and the gateway's upstream blocks encode this registry explicitly.
+
+\subsection{Asynchronous Messaging}
+RabbitMQ hosts one durable topic exchange, \texttt{campus.events}. Academic
+uses a \emph{transactional outbox}: the enrollment confirmation and the
+outbox row are written in the same database transaction, so the event can
+never be lost even if the broker is briefly unreachable. A dedicated relay
+thread polls unpublished rows (\texttt{FOR UPDATE SKIP LOCKED}, safe for
+multiple relay instances) and publishes them with publisher confirms. Finance
+consumes with an \emph{inbox} pattern: every event's ID is recorded in
+\texttt{processed\_events} inside the same transaction as the business effect,
+so redelivery (the broker's at-least-once guarantee) can never create a
+duplicate invoice. Messages that repeatedly fail processing are routed, after
+a bounded number of retries, to a dead-letter queue for manual inspection.
+\cref{fig:d3a-sequence-enrollment-invoice} in \cref{sec:uml-suite} traces this
+flow end to end.
+
+\subsection{Background Workers}
+Each domain service ships a companion worker image (same codebase, different
+entry point) that runs the outbox relay, its event consumers, and any
+scheduled jobs (Finance's monthly report generation and payment-intent
+expiry; HR's notification email delivery). Workers share their owning
+service's database and never reach across service boundaries.
+
+\subsection{Observability}
+Every service emits structured JSON logs (one object per line, with a
+request ID) to both stdout and a Fluent Bit collector, which forwards them to
+Loki. Prometheus scrapes each service's \texttt{/metrics} endpoint and
+RabbitMQ's management plugin; Grafana visualises request rate, p95 latency,
+error rate, outbox backlog and broker queue depth on a provisioned dashboard
+(\cref{fig:grafana-dashboard}).
+
+\AppFigure{grafana-dashboard}{0.92}{Grafana service-health dashboard: request rate, p95 latency, error ratio and broker backlog}
