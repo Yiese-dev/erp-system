@@ -1,0 +1,76 @@
+{
+  "uid": "campus-erp",
+  "title": "Campus ERP - Service health",
+  "tags": ["campus-erp"],
+  "timezone": "Africa/Douala",
+  "schemaVersion": 39,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Services up",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(up{job=~\"services|workers\"})", "legendFormat": "up" }],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#B44C3B", "value": null }, { "color": "#00695F", "value": 7 }] } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Requests / s",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(campus_http_requests_total[1m]))" }],
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 1 } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "5xx error ratio",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(campus_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(campus_http_requests_total[5m])), 0.001)" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "mode": "absolute", "steps": [{ "color": "#00695F", "value": null }, { "color": "#B44C3B", "value": 0.01 }] } } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Outbox events waiting",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(campus_outbox_pending)" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#00695F", "value": null }, { "color": "#C28A1E", "value": 50 }] } } }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "p95 latency by service",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (service, le) (rate(campus_http_request_seconds_bucket[5m])))", "legendFormat": "{{service}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Requests by service and status",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by (service, status) (rate(campus_http_requests_total[1m]))", "legendFormat": "{{service}} {{status}}" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "RabbitMQ messages ready",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rabbitmq_queue_messages_ready)", "legendFormat": "ready" }, { "expr": "sum(rabbitmq_queue_messages_unacked)", "legendFormat": "unacked" }]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Background jobs",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "campus_monthly_reports_generated_total", "legendFormat": "monthly reports ({{service}})" },
+        { "expr": "sum(campus_notification_emails_sent_total)", "legendFormat": "notification emails" }
+      ]
+    },
+    {
+      "id": 9, "type": "logs", "title": "Centralized logs (all services and gateway)",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [{ "expr": "{job=\"campus-erp\"}" }],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" }
+    }
+  ]
+}

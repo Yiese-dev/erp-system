@@ -1,0 +1,19 @@
+[tool.pytest.ini_options]
+testpaths = ["services", "tests"]
+pythonpath = ["."]
+addopts = "-ra --import-mode=importlib"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B008"]
+
+[tool.coverage.run]
+source = ["services.identity.app.domain", "services.academic.app.domain", "services.finance.app.domain", "services.hr.app.domain"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 70

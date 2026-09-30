@@ -1,0 +1,12 @@
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONPATH=/app
+WORKDIR /app
+COPY packages/campus_common/requirements.txt packages/campus_common/requirements.txt
+COPY services/hr/requirements.txt services/hr/requirements.txt
+RUN pip install -r services/hr/requirements.txt
+COPY packages/campus_common packages/campus_common
+COPY services/hr/app services/hr/app
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin campus
+USER 10001
+EXPOSE 9100
+CMD ["python", "-m", "services.hr.app.worker"]

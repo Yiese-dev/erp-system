@@ -1,0 +1,283 @@
+CAMPUS ERP - SRS / TECHNICAL REPORT PLANNING NOTES
+Course: SEN4121 - Large System Environment, Summer 2026
+Document owner: CHII BENEDICTA (Matricule: ICTU20251667)
+Purpose: paste this into Claude (web) along with the exam brief to draft the LaTeX SRS + technical report.
+================================================================================
+
+1. WHAT THE EXAM BRIEF REQUIRES (Section C - Documentation & Diagram Suite, 7 marks)
+--------------------------------------------------------------------------------
+- A Software Requirements Specification aligned with ISO/IEC/IEEE 29148, including:
+  functional requirements, non-functional requirements, assumptions, and constraints.
+- A complete UML diagram suite:
+  1. Use-case diagram
+  2. Class diagram
+  3. At least TWO sequence diagrams, one of which MUST cover the cross-service
+     asynchronous workflow (enrollment -> RabbitMQ -> invoice)
+  4. Entity-Relationship Diagram (ERD)
+  5. Deployment diagram showing containers AND the message broker
+- Diagrams must be CONSISTENT with the delivered implementation - inconsistencies
+  between documentation and running code are penalized.
+- SRS + technical report combined must NOT exceed 20 pages, excluding appendices
+  and diagrams.
+
+Also required elsewhere in the brief (reference these in the report, not just diagrams):
+- Mandatory architectural constraints: >=3 independently deployable microservices
+  (database-per-service), API Gateway, async messaging for >=1 cross-module workflow,
+  Docker + docker-compose, CI/CD pipeline.
+- General features (34 marks): Auth/RBAC, database management (3NF, indexing, backup/
+  recovery, ACID transactions), microservices/API integration, non-functional
+  requirements (load testing, OWASP, logging, scaling), testing/QA, DevOps.
+- Module-specific features (24 marks): Academic, Marketing & Finance, Administration & HR.
+- Presentation/demo (5 marks) and individual contribution statement (separate 1-page
+  document, NOT part of the 20-page SRS).
+
+================================================================================
+2. FULL LIST OF DIAGRAMS NEEDED (file names / labels to use in the report)
+--------------------------------------------------------------------------------
+UML DIAGRAMS (mandatory, Section C):
+  D1. Use-Case Diagram - "Campus ERP System Use Cases"
+      Actors: Super Admin, Admin, Instructor, Finance Officer, HR Officer, Employee,
+      Student, Mobile Money Provider (external), SMTP Relay (external).
+      Group use cases by module: Identity & Access, Academic, Marketing & Finance,
+      Administration & HR.
+
+  D2. Class Diagram - "Domain Model" (one diagram per service, or one combined with
+      swimlane groupings is acceptable; keep to core entities, not every column):
+      D2a. Identity: Tenant, User, Membership, Role/Permission, Session, RefreshToken
+      D2b. Academic: Program, Course, Prerequisite, Term, Offering, Student,
+           Registration, Enrollment, Assessment, Grade, AttendanceSession/Record,
+           Exam, Result, Appeal
+      D2c. Finance: FeePlan, Invoice/Line, PaymentIntent, ProviderEvent, Payment,
+           Receipt, JournalEntry/Line, Campaign, Lead, Expense, MonthlyReport
+      D2d. HR: Employee, Department, Vacancy/Applicant, RuleSet, PayrollRun/Payslip,
+           AttendanceChallenge/Log, LeaveBalance/Request, Review, Asset, InventoryItem
+
+  D3. Sequence Diagrams (need at least 2; these 3 are recommended):
+      D3a. "Enrollment-to-Invoice Asynchronous Workflow" (MANDATORY - covers the
+           cross-service async requirement):
+           Student/Admin -> Academic API -> (DB transaction: save registration +
+           outbox event) -> Academic Worker -> RabbitMQ (topic exchange) ->
+           Finance Worker (consumer) -> Finance API (create invoice from fee-plan
+           snapshot, DB transaction) -> Academic Worker (billing-status projection
+           update, consumes finance.invoice.created.v1)
+      D3b. "Mobile-Money Payment and Ledger Posting" (covers ACID/webhook):
+           Student -> Finance API (start payment intent) -> Simulated MoMo/Orange
+           Gateway -> (async delay) -> Signed webhook callback -> Finance API
+           (verify HMAC signature, lock invoice, insert payment + journal lines +
+           update balance + receipt, ONE transaction) -> Receipt PDF
+      D3c. "Authentication and Token Refresh" (covers security/session requirement):
+           User -> Gateway -> Identity API (verify Argon2id password, create
+           session + refresh token) -> issue short-lived JWT -> subsequent request
+           -> Gateway auth_request -> Identity /validate -> Academic/Finance/HR API
+
+  D4. Entity-Relationship Diagram (ERD) - one per service database (4 total, or one
+      combined page with 4 clearly separated schemas):
+      D4a. identity_db   D4b. academic_db   D4c. finance_db   D4d. hr_db
+      Show primary keys, foreign keys, and the tenant_id column present on every
+      tenant-owned table (used to justify row-level security in the report).
+
+  D5. Deployment Diagram - "Container and Broker Topology" (MANDATORY - must show
+      containers AND the message broker):
+      Nodes: Browser -> NGINX Gateway (TLS) -> [Identity, Academic, Finance, HR]
+      containers -> PostgreSQL (4 databases, 1 server, standby replica) -> RabbitMQ
+      (with Academic Worker, Finance Worker, HR Worker as consumers) -> Mailpit
+      (SMTP) -> MTN/Orange Mobile-Money Simulator -> Observability stack
+      (Prometheus, Grafana, Loki, Fluent Bit) -> Backup/PITR volume.
+
+OPTIONAL BUT RECOMMENDED (not required by the brief, strengthens the report):
+  D6. Activity Diagram - "At-Risk Student Flagging Rule" (documents the
+      attendance/grade threshold logic transparently, since the brief calls this
+      out as "a simple rule," not machine learning).
+  D7. State Diagram - "Invoice Lifecycle" (issued -> partially_paid -> paid, or
+      "Leave Request Lifecycle" (pending -> approved/rejected -> cancelled).
+  D8. Package/Component Diagram - shows packages/campus_common shared by all
+      four services without breaking service independence.
+
+================================================================================
+3. SRS STRUCTURE (ISO/IEC/IEEE 29148-aligned) - SUGGESTED SECTION OUTLINE
+--------------------------------------------------------------------------------
+1. Introduction
+   1.1 Purpose            1.2 Scope            1.3 Definitions/Acronyms/Abbreviations
+   1.4 References         1.5 Overview
+2. Overall Description
+   2.1 Product Perspective (multi-tenant microservices ERP)
+   2.2 Product Functions (summarize per module)
+   2.3 User Classes and Characteristics (7 roles)
+   2.4 Operating Environment (Docker Compose, browsers, Africa/Douala timezone)
+   2.5 Design and Implementation Constraints (brief's mandatory architectural
+       constraints: >=3 microservices, API Gateway, async messaging, containers, CI/CD)
+   2.6 Assumptions and Dependencies (simulated mobile-money, synthetic demo data,
+       local single-node Postgres/RabbitMQ, statutory payroll rates pending
+       official verification)
+3. Specific Requirements
+   3.1 External Interface Requirements (UI, API - reference OpenAPI docs)
+   3.2 Functional Requirements (numbered FR-1..FR-n, grouped by module; map each to
+       an acceptance test - keep a small traceability table)
+   3.3 Non-Functional Requirements
+       - Performance (load-test target and results)
+       - Security (RBAC, Argon2id, JWT rotation, OWASP mitigations, TLS, RLS)
+       - Reliability/Availability (backup/PITR, standby replica, RTO/RPO targets)
+       - Scalability (stateless API replicas, database pooling, broker prefetch)
+       - Maintainability (service independence, test coverage, CI/CD)
+   3.4 Database Requirements (3NF justification, indexing strategy, ERD reference)
+   3.5 Other Requirements (logging/monitoring, internationalization: FCFA/WAT)
+4. Verification
+   4.1 Test Plan Summary (mapped to FR IDs) 4.2 Coverage Report Summary
+   4.3 Load-Test Summary  4.4 Security Test Summary  4.5 Recovery Drill Summary
+5. Appendices (diagrams, glossary, sources for statutory payroll rates)
+   -- Appendices and diagrams are EXCLUDED from the 20-page limit.
+
+================================================================================
+4. TECHNICAL REPORT STRUCTURE (combine with SRS, or keep as a second document -
+   either way the TOTAL must stay within 20 pages excluding appendices/diagrams)
+--------------------------------------------------------------------------------
+1. Architecture Overview
+   - Microservices decomposition and justification (Identity, Academic, Finance, HR)
+   - API Gateway: routing, auth delegation, rate limiting (NGINX config summary)
+   - Database-per-service pattern: 4 databases, 1 physical server locally, roles
+     (owner vs runtime app role), row-level security enforcement
+   - Asynchronous messaging: RabbitMQ topic exchange, transactional outbox,
+     inbox/idempotency pattern, dead-letter queue, retry policy
+2. Security Design
+   - RBAC matrix (role x permission table)
+   - Authentication/session lifecycle (Argon2id, JWT lifetime, refresh rotation,
+     reuse detection, account lockout)
+   - OWASP Top 10 mitigation table (at least 5 risks, with evidence references)
+   - Tenant isolation proof (composite FKs, RLS policies, cross-tenant test results)
+3. Data Design
+   - 3NF normalization justification with examples
+   - Indexing strategy and EXPLAIN ANALYZE before/after evidence
+   - Transaction management example (payment + ledger, ACID walkthrough)
+4. Module Walkthroughs (Academic / Finance & Marketing / Administration & HR)
+   - Key workflows, business rules, and how they map to FR IDs
+   - Screenshots of key screens (see section 5 below)
+5. Non-Functional Evidence
+   - Load-testing methodology and results (target concurrent users, p95 latency)
+   - Monitoring/logging (Grafana dashboard screenshot, Loki log sample)
+   - Backup and point-in-time recovery drill (commands, timestamps, screenshots)
+   - Horizontal scaling strategy (conceptual, cite stateless design)
+6. Testing and Quality Assurance
+   - Test plan summary table, coverage percentage per service, bug-tracker evidence
+7. DevOps
+   - Dockerfile/Compose summary, CI pipeline stages, deployment guide reference
+8. Limitations and Future Work
+   - Payroll rule-set verification status, simulated payment gateway disclosure,
+     any bonus items not attempted (MFA, Kubernetes)
+9. Academic Integrity and AI Disclosure
+   - State which parts used AI assistance (this codebase), cite accordingly per
+     the brief's academic integrity section.
+
+================================================================================
+5. SCREENSHOTS TO CAPTURE (for the report appendix - captured manually by owner)
+--------------------------------------------------------------------------------
+Suggested screen list, in a logical demo order, one screenshot each:
+  01. Login page (light mist/teal/coral theme, demo account list)
+  02. Admin dashboard (KPIs, enrollment chart, at-risk list, billing pipeline)
+  03. Academic: Programmes & courses catalogue (prerequisite chips visible)
+  04. Academic: Course offerings + roster modal
+  05. Academic: Gradebook with assessment weights and marks entry
+  06. Academic: Exam timetable with a conflict-check result shown
+  07. Academic: At-risk students list with documented threshold rule callout
+  08. Academic: Grade appeal detail with history timeline
+  09. Finance: Overview dashboard (billed/collected/outstanding KPIs, charts)
+  10. Finance: Invoice detail modal with receipts and mobile-money attempts
+  11. Finance: Student "Pay fees" screen mid-payment (pending state)
+  12. Finance: Payment succeeded state with receipt download
+  13. Finance: Fee plans & open billing issues (if any) with retry button
+  14. Finance: Campaign pipeline (kanban-style lead stages) and ROI table
+  15. Finance: Monthly financial summary report (generated PDF or list view)
+  16. Finance: General ledger trial balance (balanced badge visible)
+  17. HR: Overview dashboard (headcount, attendance trend, leave donut chart)
+  18. HR: Employee directory and an employee detail modal
+  19. HR: Recruitment pipeline (applied -> hired stages)
+  20. HR: Payroll rule-set view with CNPS/IRPP rates and source citations
+  21. HR: Payroll run detail with a payslip PDF download
+  22. HR: QR attendance kiosk screen (rotating code + countdown)
+  23. HR: Leave request approval screen
+  24. HR: Assets & inventory screen with a low-stock flag
+  25. Admin: Users & roles management screen
+  26. (If available) Grafana dashboard: service health / request rate / logs panel
+  27. (If available) Terminal output of a passing pytest run with coverage summary
+  28. (If available) Terminal output of `docker compose up` showing all healthy services
+Capture at a consistent desktop width (about 1440px) for a uniform report layout.
+Recommended folder: screenshots/ (already created in the project root).
+
+================================================================================
+6. PROJECT STRUCTURE TO DESCRIBE IN THE REPORT (matches the actual repository)
+--------------------------------------------------------------------------------
+erp-system/
+  docker-compose.yml            One-command local startup (gateway, 4 services,
+                                 4 workers, Postgres, RabbitMQ, Mailpit, simulator,
+                                 Prometheus, Grafana, Loki, Fluent Bit, backup/standby)
+  .env.example                  Documented configuration; scripts/bootstrap.py
+                                 generates a real .env with random local secrets
+  packages/campus_common/       Shared infrastructure ONLY (not domain logic):
+                                 config.py, database.py (tenant scoping + RLS glue),
+                                 security.py (JWT), http.py (FastAPI app factory,
+                                 error envelope, logging, metrics), events.py
+                                 (outbox/inbox + RabbitMQ helpers), pdf.py, demo.py,
+                                 migrate.py, keys.py, testing.py
+  services/identity/            Auth service: tenants, users, memberships, roles,
+                                 sessions, refresh-token rotation, platform admin
+    app/domain/{authorization,sessions}.py, app/main.py, app/models.py, app/seed.py
+    tests/  Dockerfile  requirements.txt
+  services/academic/            Programmes, courses, prerequisites, registrations,
+                                 gradebook, attendance, exams, results, appeals,
+                                 at-risk rule, transcript/attendance PDFs
+    app/domain/{enrollment,grading,exams,risk,reports}.py
+    app/{main,models,worker,seed,migrate}.py
+    tests/  Dockerfile  Dockerfile.worker  requirements.txt
+  services/finance/             Fee plans, invoices, mobile-money payments, ledger,
+                                 expenses, campaigns/leads, monthly reports
+    app/domain/{billing,payments,ledger,marketing,reports}.py
+    app/{main,models,worker,simulator,seed,migrate}.py
+    tests/  Dockerfile  Dockerfile.worker  requirements.txt
+  services/hr/                  Employees, recruitment, payroll (CNPS/IRPP), QR
+                                 attendance, leave, performance reviews, assets/stock
+    app/domain/{payroll,attendance,operations,notifications}.py
+    app/{main,models,worker,seed,migrate}.py
+    tests/  Dockerfile  Dockerfile.worker  requirements.txt
+  frontend/                     React + TypeScript + Vite single-page application
+    src/components/  (AppShell, DataTable, charts, shared UI primitives)
+    src/lib/         (api client, auth context, formatting, data hooks)
+    src/pages/{academic,finance,hr,admin}/  (role-based screens)
+    src/styles.css   (mist/teal/coral design tokens)
+  infra/
+    gateway/         NGINX config: routing, TLS, security headers, rate limits
+    postgres/        Dockerfile, role/database bootstrap SQL, WAL archive and
+                      backup/PITR-drill/standby shell scripts
+    rabbitmq/        enabled_plugins (management + prometheus)
+    observability/   Prometheus, Loki, Fluent Bit config; Grafana dashboards
+    migrate/         Shared migration-runner image
+  scripts/
+    bootstrap.py     Generates .env and JWT/TLS key material
+    seed_local.py     Convenience script used for local (non-Docker) smoke testing
+  requirements-dev.txt, pyproject.toml   Python tooling (pytest, ruff, coverage)
+
+================================================================================
+7. KEY FACTS TO QUOTE ACCURATELY IN THE REPORT (do not re-derive, just cite)
+--------------------------------------------------------------------------------
+- 4 services total (Identity + the 3 required domain modules), each with its own
+  PostgreSQL database and least-privilege runtime role; row-level security enforced
+  on every tenant-owned table.
+- Messaging: RabbitMQ topic exchange "campus.events"; transactional outbox in
+  Academic; inbox/idempotency table in Finance; retry queue + dead-letter queue;
+  message envelope includes event_id, schema_version, tenant_id, correlation_id.
+- Payment simulator mimics MTN MoMo / Orange Money request-to-pay + signed webhook
+  callback (HMAC-SHA256); explicitly disclosed as simulated, no real transactions.
+- Payroll: CNPS pension, family allowance, work-injury contributions and IRPP/PAYE
+  progressive scale with CAC are implemented as an editable, source-cited,
+  APPROVAL-GATED rule set (status: draft until an HR officer verifies and approves
+  against the official DGI/CNPS publications) - state this honestly in the report,
+  do not claim the rates are certified without approval evidence.
+- QR attendance: kiosk displays a signed, 60-second-expiring challenge; scanning or
+  typing the code checks the employee in/out; not biometric (documented substitute
+  permitted by the brief).
+- Automated tests: 45+ backend tests across 4 services, ~88% coverage on core
+  business-logic domain packages (update with the final CI figure before submission).
+- Design tokens: background #F3F6F5 (mist), primary #00695F (teal), accent #B44C3B
+  (coral), typography Source Sans 3 / IBM Plex Mono.
+
+================================================================================
+END OF FILE - update the coverage %, load-test numbers, and payroll approval
+status with real figures once the CI pipeline and recovery drill have been run.

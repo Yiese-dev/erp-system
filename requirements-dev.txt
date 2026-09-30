@@ -1,0 +1,7 @@
+-r services/identity/requirements.txt
+-r services/academic/requirements.txt
+-r services/finance/requirements.txt
+-r services/hr/requirements.txt
+pytest==8.4.2
+pytest-cov==6.3.0
+ruff==0.13.0

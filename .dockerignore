@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+.local
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.coverage*
+coverage.xml
+htmlcov
+frontend/node_modules
+frontend/dist
+**/*.sqlite
+*.pdf
+.env
+tests/load/results

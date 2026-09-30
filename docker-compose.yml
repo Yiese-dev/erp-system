@@ -1,0 +1,446 @@
+name: campus-erp
+
+x-python-env: &python-env
+  CAMPUS_LOCAL: "0"
+  CAMPUS_DEMO: ${CAMPUS_DEMO:-1}
+  CAMPUS_DEMO_PASSWORD: ${CAMPUS_DEMO_PASSWORD:-CampusDemo!2026}
+  CAMPUS_ORIGINS: ${CAMPUS_ORIGINS:-http://localhost:8080,https://localhost:8443}
+  CAMPUS_DATA_DIR: /data
+  JWT_PUBLIC_KEY_FILE: /data/keys/public.pem
+  IDENTITY_URL: http://identity:8000
+  WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+  QR_SECRET: ${QR_SECRET}
+  SIMULATOR_KEY: ${SIMULATOR_KEY}
+  SIMULATOR_URL: http://momo-simulator:8000
+  CALLBACK_BASE_URL: http://gateway:8080
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  HR_MAILBOX: hr-office@campus.test
+  LOG_HOST: fluent-bit:5140
+  BROKER_URL: amqp://${RABBITMQ_USER:-campus}:${RABBITMQ_PASSWORD}@rabbitmq:5672/campus
+
+x-healthcheck-defaults: &hc-defaults
+  interval: 10s
+  timeout: 5s
+  retries: 10
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: infra/postgres/Dockerfile
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      IDENTITY_OWNER_PASSWORD: ${IDENTITY_OWNER_PASSWORD}
+      IDENTITY_APP_PASSWORD: ${IDENTITY_APP_PASSWORD}
+      ACADEMIC_OWNER_PASSWORD: ${ACADEMIC_OWNER_PASSWORD}
+      ACADEMIC_APP_PASSWORD: ${ACADEMIC_APP_PASSWORD}
+      FINANCE_OWNER_PASSWORD: ${FINANCE_OWNER_PASSWORD}
+      FINANCE_APP_PASSWORD: ${FINANCE_APP_PASSWORD}
+      HR_OWNER_PASSWORD: ${HR_OWNER_PASSWORD}
+      HR_APP_PASSWORD: ${HR_APP_PASSWORD}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    command: >
+      postgres -c wal_level=replica -c archive_mode=on -c archive_command='archive-wal.sh %p %f'
+               -c max_wal_senders=5 -c wal_keep_size=512MB -c listen_addresses='*'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - wal_archive:/wal-archive
+      - backups:/backups
+    networks:
+      - data
+    healthcheck:
+      <<: *hc-defaults
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+    restart: unless-stopped
+
+  backup:
+    build:
+      context: .
+      dockerfile: infra/postgres/Dockerfile
+    entrypoint: ["/usr/local/bin/backup-loop.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: replicator
+      PGPASSWORD: ${REPLICATION_PASSWORD}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP: ${BACKUP_KEEP:-7}
+    volumes:
+      - wal_archive:/wal-archive
+      - backups:/backups
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  standby:
+    build:
+      context: .
+      dockerfile: infra/postgres/Dockerfile
+    entrypoint: ["/usr/local/bin/standby-entrypoint.sh"]
+    environment:
+      PRIMARY_HOST: postgres
+      PGUSER: replicator
+      PGPASSWORD: ${REPLICATION_PASSWORD}
+    volumes:
+      - standby_data:/var/lib/postgresql/data
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: [ha]
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-campus}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: campus
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    networks:
+      - data
+    healthcheck:
+      <<: *hc-defaults
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    networks:
+      - data
+    restart: unless-stopped
+
+  keys:
+    build:
+      context: .
+      dockerfile: infra/migrate/Dockerfile
+    command: ["-m", "packages.campus_common.keys", "/data/keys", "/data/keys", "/tls"]
+    volumes:
+      - app_data:/data
+      - app_tls:/tls
+
+  migrate-identity:
+    build:
+      context: .
+      dockerfile: infra/migrate/Dockerfile
+    command: ["-m", "services.identity.app.migrate"]
+    environment:
+      <<: *python-env
+      IDENTITY_MIGRATION_URL: postgresql+psycopg://identity_owner:${IDENTITY_OWNER_PASSWORD}@postgres:5432/identity_db
+      IDENTITY_DATABASE_URL: postgresql+psycopg://identity_app:${IDENTITY_APP_PASSWORD}@postgres:5432/identity_db
+      DATABASE_APP_ROLE: identity_app
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keys:
+        condition: service_completed_successfully
+
+  migrate-academic:
+    build:
+      context: .
+      dockerfile: infra/migrate/Dockerfile
+    command: ["-m", "services.academic.app.migrate"]
+    environment:
+      <<: *python-env
+      ACADEMIC_MIGRATION_URL: postgresql+psycopg://academic_owner:${ACADEMIC_OWNER_PASSWORD}@postgres:5432/academic_db
+      ACADEMIC_DATABASE_URL: postgresql+psycopg://academic_app:${ACADEMIC_APP_PASSWORD}@postgres:5432/academic_db
+      DATABASE_APP_ROLE: academic_app
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keys:
+        condition: service_completed_successfully
+
+  migrate-finance:
+    build:
+      context: .
+      dockerfile: infra/migrate/Dockerfile
+    command: ["-m", "services.finance.app.migrate"]
+    environment:
+      <<: *python-env
+      FINANCE_MIGRATION_URL: postgresql+psycopg://finance_owner:${FINANCE_OWNER_PASSWORD}@postgres:5432/finance_db
+      FINANCE_DATABASE_URL: postgresql+psycopg://finance_app:${FINANCE_APP_PASSWORD}@postgres:5432/finance_db
+      DATABASE_APP_ROLE: finance_app
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keys:
+        condition: service_completed_successfully
+
+  migrate-hr:
+    build:
+      context: .
+      dockerfile: infra/migrate/Dockerfile
+    command: ["-m", "services.hr.app.migrate"]
+    environment:
+      <<: *python-env
+      HR_MIGRATION_URL: postgresql+psycopg://hr_owner:${HR_OWNER_PASSWORD}@postgres:5432/hr_db
+      HR_DATABASE_URL: postgresql+psycopg://hr_app:${HR_APP_PASSWORD}@postgres:5432/hr_db
+      DATABASE_APP_ROLE: hr_app
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keys:
+        condition: service_completed_successfully
+
+  identity:
+    build:
+      context: .
+      dockerfile: services/identity/Dockerfile
+    environment:
+      <<: *python-env
+      IDENTITY_DATABASE_URL: postgresql+psycopg://identity_app:${IDENTITY_APP_PASSWORD}@postgres:5432/identity_db
+      JWT_PRIVATE_KEY_FILE: /data/keys/private.pem
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+      - gateway
+    depends_on:
+      migrate-identity:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc-defaults
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+    restart: unless-stopped
+
+  academic:
+    build:
+      context: .
+      dockerfile: services/academic/Dockerfile
+    environment:
+      <<: *python-env
+      ACADEMIC_DATABASE_URL: postgresql+psycopg://academic_app:${ACADEMIC_APP_PASSWORD}@postgres:5432/academic_db
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+      - gateway
+    depends_on:
+      migrate-academic:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc-defaults
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+    restart: unless-stopped
+
+  academic-worker:
+    build:
+      context: .
+      dockerfile: services/academic/Dockerfile.worker
+    environment:
+      <<: *python-env
+      ACADEMIC_DATABASE_URL: postgresql+psycopg://academic_app:${ACADEMIC_APP_PASSWORD}@postgres:5432/academic_db
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+    depends_on:
+      academic:
+        condition: service_healthy
+    restart: unless-stopped
+
+  finance:
+    build:
+      context: .
+      dockerfile: services/finance/Dockerfile
+    environment:
+      <<: *python-env
+      FINANCE_DATABASE_URL: postgresql+psycopg://finance_app:${FINANCE_APP_PASSWORD}@postgres:5432/finance_db
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+      - gateway
+    depends_on:
+      migrate-finance:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc-defaults
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+    restart: unless-stopped
+
+  finance-worker:
+    build:
+      context: .
+      dockerfile: services/finance/Dockerfile.worker
+    environment:
+      <<: *python-env
+      FINANCE_DATABASE_URL: postgresql+psycopg://finance_app:${FINANCE_APP_PASSWORD}@postgres:5432/finance_db
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+    depends_on:
+      finance:
+        condition: service_healthy
+    restart: unless-stopped
+
+  momo-simulator:
+    build:
+      context: .
+      dockerfile: services/finance/Dockerfile
+    command: ["uvicorn", "services.finance.app.simulator:create_simulator", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      SIMULATOR_KEY: ${SIMULATOR_KEY}
+      CALLBACK_BASE_URL: http://gateway:8080
+      LOG_HOST: fluent-bit:5140
+    networks:
+      - data
+      - gateway
+    restart: unless-stopped
+
+  hr:
+    build:
+      context: .
+      dockerfile: services/hr/Dockerfile
+    environment:
+      <<: *python-env
+      HR_DATABASE_URL: postgresql+psycopg://hr_app:${HR_APP_PASSWORD}@postgres:5432/hr_db
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+      - gateway
+    depends_on:
+      migrate-hr:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc-defaults
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+    restart: unless-stopped
+
+  hr-worker:
+    build:
+      context: .
+      dockerfile: services/hr/Dockerfile.worker
+    environment:
+      <<: *python-env
+      HR_DATABASE_URL: postgresql+psycopg://hr_app:${HR_APP_PASSWORD}@postgres:5432/hr_db
+    volumes:
+      - app_data:/data
+    networks:
+      - data
+    depends_on:
+      hr:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: infra/gateway/Dockerfile
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - app_tls:/etc/nginx/tls:ro
+    networks:
+      - gateway
+    depends_on:
+      identity:
+        condition: service_healthy
+      academic:
+        condition: service_healthy
+      finance:
+        condition: service_healthy
+      hr:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc-defaults
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+    restart: unless-stopped
+
+  fluent-bit:
+    image: cr.fluentbit.io/fluent/fluent-bit:3.1
+    volumes:
+      - ./infra/observability/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./infra/observability/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+    networks:
+      - data
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.1.1
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./infra/observability/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks:
+      - data
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - data
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-change-me-grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./infra/observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./infra/observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - data
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+networks:
+  gateway: {}
+  data:
+    internal: true
+
+volumes:
+  postgres_data: {}
+  standby_data: {}
+  wal_archive: {}
+  backups: {}
+  rabbitmq_data: {}
+  app_data: {}
+  app_tls: {}
+  loki_data: {}
+  prometheus_data: {}
+  grafana_data: {}
