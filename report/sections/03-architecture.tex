@@ -81,7 +81,10 @@ Every service emits structured JSON logs (one object per line, with a
 request ID) to both stdout and a Fluent Bit collector, which forwards them to
 Loki. Prometheus scrapes each service's \texttt{/metrics} endpoint and
 RabbitMQ's management plugin; Grafana visualises request rate, p95 latency,
-error rate, outbox backlog and broker queue depth on a provisioned dashboard
-(\cref{fig:grafana-dashboard}).
+error rate, outbox backlog and broker queue depth on a provisioned dashboard.
+The platform operator's system-status screen (\cref{fig:admin-system-status})
+surfaces each service's live readiness alongside direct links to these
+operations tools.
 
-\AppFigure{grafana-dashboard}{0.92}{Grafana service-health dashboard: request rate, p95 latency, error ratio and broker backlog}
+\AppFigure{admin-dashboard}{0.94}{Administrator dashboard for the ICT University tenant: live KPIs, enrolment and collections/billing/expenses charts}
+\AppFigure{admin-system-status}{0.94}{Platform system-status screen: live per-service readiness with links to Grafana, Prometheus, RabbitMQ and Mailpit}

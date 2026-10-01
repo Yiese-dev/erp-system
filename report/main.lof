@@ -1,0 +1,18 @@
+\contentsline {figure}{\numberline {1}{\ignorespaces Sign-in screen, showing the light mist/teal/coral design and the demonstration-account picker}}{5}{figure.caption.2}%
+\contentsline {figure}{\numberline {2}{\ignorespaces Administrator dashboard for the ICT University tenant: live KPIs, enrolment and collections/billing/expenses charts}}{7}{figure.caption.4}%
+\contentsline {figure}{\numberline {3}{\ignorespaces Platform system-status screen: live per-service readiness with links to Grafana, Prometheus, RabbitMQ and Mailpit}}{7}{figure.caption.5}%
+\contentsline {figure}{\numberline {4}{\ignorespaces Institution-scoped user and role management screen: changing a role immediately revokes that user's active sessions}}{9}{figure.caption.8}%
+\contentsline {figure}{\numberline {5}{\ignorespaces Platform-operator view of isolated institutions (tenants), each with an independent membership count}}{10}{figure.caption.9}%
+\contentsline {figure}{\numberline {6}{\ignorespaces Entity-relationship diagram across all four service databases}}{11}{figure.caption.10}%
+\contentsline {figure}{\numberline {7}{\ignorespaces Use-case diagram for all seven roles across the four modules}}{13}{figure.caption.12}%
+\contentsline {figure}{\numberline {8}{\ignorespaces Domain class diagram (key entities per service, with the cross-service async link shown as a dependency)}}{14}{figure.caption.13}%
+\contentsline {figure}{\numberline {9}{\ignorespaces Sequence diagram: registration confirmation to tuition invoice via the transactional outbox and RabbitMQ}}{15}{figure.caption.14}%
+\contentsline {figure}{\numberline {10}{\ignorespaces Sequence diagram: signed webhook callback and the ACID payment/ledger transaction}}{16}{figure.caption.15}%
+\contentsline {figure}{\numberline {11}{\ignorespaces Sequence diagram: gateway auth delegation and refresh-token rotation with reuse detection}}{17}{figure.caption.16}%
+\contentsline {figure}{\numberline {12}{\ignorespaces Deployment diagram: containers, the message broker, databases, backup/standby and observability}}{18}{figure.caption.17}%
+\contentsline {figure}{\numberline {13}{\ignorespaces Examination timetable with conflict-checked scheduling}}{19}{figure.caption.18}%
+\contentsline {figure}{\numberline {14}{\ignorespaces Student self-service: published results and the 14-day grade-appeal window}}{20}{figure.caption.19}%
+\contentsline {figure}{\numberline {15}{\ignorespaces Expense approval workflow: submitted, to-approve, to-pay and paid queues}}{21}{figure.caption.20}%
+\contentsline {figure}{\numberline {16}{\ignorespaces Marketing campaign lead pipeline and ROI, attributed only from tuition actually collected}}{22}{figure.caption.21}%
+\contentsline {figure}{\numberline {17}{\ignorespaces Leave request approval screen: an employee cannot approve their own request}}{23}{figure.caption.22}%
+\contentsline {figure}{\numberline {18}{\ignorespaces Employee self-service QR check-in screen}}{23}{figure.caption.23}%

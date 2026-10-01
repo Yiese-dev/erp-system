@@ -1,0 +1,42 @@
+\section{Marketing \& Finance Module}
+\label{sec:finance-module}
+
+\subsection{Functional Requirements}
+\begin{reqlist}
+  \setcounter{reqlisti}{10}
+  \item A fee plan prices a programme/term combination; changing or
+    deactivating a plan never alters invoices already issued, since every
+    invoice stores an immutable snapshot of the price it was billed at.
+  \item Finance consumes \texttt{academic.enrollment.confirmed.v1} and creates
+    exactly one invoice per registration, even under duplicate delivery; a
+    registration whose programme/term has no active fee plan becomes a
+    visible, retryable billing issue rather than a silent zero-value invoice.
+  \item Students initiate an idempotent mobile-money payment (MTN MoMo or
+    Orange Money, simulated); the simulator emits a delayed, HMAC-signed
+    callback supporting pending, success, failure and timeout outcomes.
+  \item Settlement -- payment row, balanced ledger posting, invoice-balance
+    update and digital receipt -- commits as one ACID transaction
+    (\cref{fig:d3b-sequence-payment-ledger}); a repeated valid callback is a
+    safe no-op.
+  \item Finance officers can record a manual bank-transfer or cash payment,
+    subject to the same outstanding-balance check.
+  \item Expenses follow a submitted $\to$ approved $\to$ paid workflow with
+    segregation of duties: the approver may never be the submitter.
+  \item Marketing campaigns track leads through a fixed pipeline
+    (new $\to$ contacted $\to$ qualified $\to$ applied $\to$ converted/lost);
+    converting a lead links it to an actually invoiced student, and
+    campaign ROI is computed only from tuition genuinely collected after
+    conversion, divided by paid campaign spend.
+  \item A scheduled worker automatically generates one monthly financial
+    summary (collections, receivables, expenses, campaign metrics, all in
+    FCFA) per tenant per closed month, catching up after downtime without
+    producing duplicates; an authorised user may regenerate a month, which
+    creates a new, separately retained version.
+  \item The general ledger enforces double-entry invariants at the database
+    layer: every posted line is a single positive debit or credit, and every
+    entry's debits equal its credits.
+\end{reqlist}
+
+\subsection{Screens}
+\AppFigure{finance-expenses}{0.94}{Expense approval workflow: submitted, to-approve, to-pay and paid queues}
+\AppFigure{14-finance-campaigns}{0.94}{Marketing campaign lead pipeline and ROI, attributed only from tuition actually collected}

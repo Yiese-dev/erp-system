@@ -1,0 +1,98 @@
+\section{Non-Functional Evidence, Testing and DevOps}
+\label{sec:nfr-testing-devops}
+
+\subsection{Performance and Load Testing}
+The defined workload is 50 concurrent virtual users against a read-heavy mix
+of dashboard, list and detail endpoints for five minutes after a warm-up
+period, using k6. The proposed acceptance targets are a 95th-percentile
+response time under 500\,ms for read endpoints and under 1000\,ms for write
+endpoints, with an unexpected-error rate below 1\%. Login and report-export
+endpoints are measured separately from the main workload, since they are
+deliberately rate-limited at the gateway. \cref{tab:load} is the template used
+to record the actual run; it should be completed with real numbers and
+hardware details from \texttt{tests/load/} before final submission.
+
+\begin{table}[H]
+  \centering
+  \caption{Load-test result template (complete with measured values)}
+  \label{tab:load}
+  \begin{tabular}{L{3.4cm}R{2.2cm}R{2.2cm}R{2.2cm}R{2.2cm}}
+    \toprule
+    \rowcolor{ceTeal}\thd{Workload} & \thd{VUs} & \thd{p95 (ms)} & \thd{Errors (\%)} & \thd{Duration} \\
+    \midrule
+    Dashboard reads & 50 & -- & -- & 5 min \\
+    Registration write & 10 & -- & -- & 2 min \\
+    Payment intent + callback & 10 & -- & -- & 2 min \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Scalability Strategy}
+API instances are stateless with respect to authentication (JWT verification
+uses only the public key, held by every instance), so the gateway can load
+balance multiple replicas of any domain service without sticky sessions.
+Identity's session and refresh-token state lives centrally in
+\texttt{identity\_db}, which remains the single source of truth for session
+revocation across replicas. Consumers use a bounded prefetch count so that
+adding worker replicas increases throughput without unbounded memory growth,
+and every consumer transaction is idempotent, so redelivery after a crash or
+a rebalance cannot duplicate side effects. \cref{fig:d5-deployment}'s
+Compose topology is the current single-node profile; horizontally scaling any
+one service is, by this design, a configuration change (replica count) rather
+than a code change.
+
+\subsection{Testing and Quality Assurance}
+Each service owns a \texttt{tests/} suite of unit tests (pure domain-function
+logic, e.g. conflict detection, at-risk evaluation, payroll calculation) and
+integration tests (through the FastAPI test client, covering full HTTP
+request/response cycles, tenant isolation, and concurrency/rollback
+scenarios). Coverage is measured on each service's \texttt{app.domain}
+package specifically, so that trivial routing code cannot inflate the
+percentage; the CI pipeline fails the build below 70\%. \cref{tab:coverage}
+reports the coverage achieved at the time of writing (see
+\texttt{docs/evidence/coverage.txt} for the full \texttt{pytest-cov} report).
+
+\begin{table}[H]
+  \centering\small
+  \caption{Automated test coverage by service (core domain logic)}
+  \label{tab:coverage}
+  \begin{tabular}{L{2.6cm}R{2.0cm}R{2.0cm}R{2.0cm}}
+    \toprule
+    \rowcolor{ceTeal}\thd{Service} & \thd{Tests} & \thd{Domain coverage} & \thd{Status} \\
+    \midrule
+    Identity & 15 & 96\% & Passing \\
+    Academic & 21 & $\sim$89\% & Passing \\
+    Finance & 8 & $\sim$88\% & Passing \\
+    HR & 11 & $\sim$88\% & Passing \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A written test plan maps each functional requirement (Appendix~\ref{app:trace})
+to the automated test that verifies it. Open and resolved issues are tracked
+on a GitHub Issues board (linked from the repository README); screenshots or
+an export of that board should be attached as evidence before submission.
+
+\subsection{DevOps: Containerisation and CI/CD}
+Every service (and its worker) has its own multi-stage Dockerfile, running as
+a non-root user, with a container \texttt{HEALTHCHECK} against its
+\texttt{/health/ready} endpoint. \texttt{docker-compose.yml} brings up the
+full system -- gateway, four services, three workers, the mobile-money
+simulator, PostgreSQL, RabbitMQ, Mailpit and the observability stack -- with
+one command, gated by explicit \texttt{depends\_on} health and
+completion conditions so that migrations run before the API starts and the
+API is healthy before the gateway routes to it. The GitHub Actions pipeline
+(\texttt{.github/workflows/ci.yml}) runs on every pull request and on every
+push to \texttt{main}: it lints and tests each Python service independently
+with a coverage gate, builds and type-checks the frontend, and -- on
+\texttt{main} only -- builds every service's container image, verifying the
+Dockerfiles are still valid without publishing to a registry.
+
+\subsection{Deployment Guide (Summary)}
+A third party can run the system from a clean machine with Docker Desktop
+installed by cloning the repository, running
+\texttt{python scripts/bootstrap.py} (generates \texttt{.env} and local JWT
+signing keys), then \texttt{docker compose up --build}. The full step-by-step
+guide, including the non-Docker quick-start (\texttt{run.bat}) used for this
+report's screenshots, is kept in the repository README and is not duplicated
+here to preserve the page budget.

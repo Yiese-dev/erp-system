@@ -1,0 +1,42 @@
+\section{UML Diagram Suite}
+\label{sec:uml-suite}
+
+This section presents the complete UML diagram suite required by the project
+brief: a use-case diagram, a class diagram, at least two sequence diagrams
+(one covering the mandatory cross-service asynchronous workflow), an
+entity-relationship diagram, and a deployment diagram showing containers and
+the message broker. All diagrams were generated from PlantUML source files
+committed under \texttt{report/diagrams/} and are kept consistent with the
+delivered code: entity and event names below match the class and column
+names used in \texttt{services/*/app/models.py} and
+\texttt{packages/campus\_common/events.py}.
+
+\subsection{Use-Case Diagram}
+\Diagram{d1-use-case}{0.96}{Use-case diagram for all seven roles across the four modules}
+
+\subsection{Class Diagram}
+\Diagram{d2-class}{0.98}{Domain class diagram (key entities per service, with the cross-service async link shown as a dependency)}
+
+\subsection{Sequence Diagrams}
+\subsubsection{Enrollment-to-Invoice (mandatory cross-service asynchronous workflow)}
+\Diagram{d3a-sequence-enrollment-invoice}{0.98}{Sequence diagram: registration confirmation to tuition invoice via the transactional outbox and RabbitMQ}
+
+\subsubsection{Mobile-Money Payment and Ledger Posting}
+\Diagram{d3b-sequence-payment-ledger}{0.98}{Sequence diagram: signed webhook callback and the ACID payment/ledger transaction}
+
+\subsubsection{Authentication and Refresh-Token Rotation}
+\Diagram{d3c-sequence-auth}{0.9}{Sequence diagram: gateway auth delegation and refresh-token rotation with reuse detection}
+
+\subsection{Deployment Diagram}
+\Diagram{d5-deployment}{0.98}{Deployment diagram: containers, the message broker, databases, backup/standby and observability}
+
+\begin{okbox}
+\textbf{Diagram-to-code consistency.} The four database clusters in
+\cref{fig:d4-erd} correspond exactly to the four \texttt{Base.metadata}
+declarations in \texttt{services/\{identity,academic,finance,hr\}/app/models.py};
+the RabbitMQ exchange name \texttt{campus.events} in
+\cref{fig:d5-deployment,fig:d3a-sequence-enrollment-invoice} matches the
+constant in \texttt{packages/campus\_common/events.py}; and the event type
+\texttt{academic.enrollment.confirmed.v1} appears verbatim in
+\texttt{services/academic/app/domain/enrollment.py}.
+\end{okbox}

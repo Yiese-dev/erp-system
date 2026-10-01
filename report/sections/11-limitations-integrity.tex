@@ -1,0 +1,56 @@
+\section{Limitations, Future Work and Academic Integrity}
+\label{sec:limitations}
+
+\subsection{Known Limitations}
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Payment gateway.} MTN Mobile Money and Orange Money are
+    represented by a disclosed simulator that mimics their request-to-pay and
+    signed-callback contract; no real money moves and no production
+    credentials are held. Replacing the simulator with a certified adapter is
+    future work and is isolated behind the \texttt{PaymentProvider} interface.
+  \item \textbf{Statutory payroll rates.} The CNPS/IRPP rule set must be
+    reviewed and explicitly approved by an HR officer against the current
+    official publications before it is relied upon for anything beyond a
+    classroom demonstration; see \cref{sec:hr-module} and
+    Appendix~\ref{app:sources}.
+  \item \textbf{Biometric attendance.} A signed, time-boxed QR challenge is
+    used instead of biometric hardware, as explicitly permitted by the
+    project brief.
+  \item \textbf{High availability.} A streaming standby is included for the
+    backup/recovery story, but automatic failover, multi-region deployment
+    and Kubernetes manifests were not attempted (the brief lists Kubernetes as
+    optional bonus work).
+  \item \textbf{Multi-factor authentication.} Listed as optional bonus work in
+    the brief; not implemented in this submission.
+  \item \textbf{Deployment scale.} The demonstrated deployment is a single
+    Docker host; the scalability strategy in
+    \cref{sec:nfr-testing-devops} is validated conceptually (stateless
+    services, idempotent consumers) rather than against a multi-node cluster.
+\end{itemize}
+
+\subsection{Future Work}
+Priority candidates for continued development are: a certified mobile-money
+adapter; a second, independently verified payroll rule-set review by a
+qualified accountant; Kubernetes manifests for the optional bonus marks;
+and extending the load-testing workload to the write-heavy payroll-finalisation
+and monthly-report-generation paths.
+
+\subsection{Academic Integrity and AI-Assistance Disclosure}
+This project's codebase, infrastructure configuration and this report were
+developed with the assistance of an AI pair-programming tool (GitHub
+Copilot), used for scaffolding boilerplate, refactoring, and drafting prose
+and diagram source, under the direction and review of the author,
+\textbf{CHII BENEDICTA YIESE (ICTU20251667)}. Every architectural decision,
+business rule and verification claim in this document reflects a choice made
+and checked by the author, and the author is able to explain and, if asked,
+modify any part of the delivered codebase during the individual defense.
+This disclosure is made in accordance with the module's academic-integrity
+policy, which requires AI-generated or reused material to be explicitly
+cited and explained at the start of the defense.
+
+\begin{warnbox}
+\textbf{Reminder for submission.} Attach the signed individual contribution
+statement and the signed academic-integrity declaration as separate
+documents, per the brief -- they are deliberately \emph{not} included inside
+this report's page count.
+\end{warnbox}

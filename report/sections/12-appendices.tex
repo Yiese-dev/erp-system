@@ -1,0 +1,59 @@
+\section{Requirement Traceability Matrix}
+\label{app:trace}
+\begin{longtable}{L{1.4cm}L{6.7cm}L{3.0cm}L{2.6cm}}
+  \toprule
+  \rowcolor{ceTeal}\thd{ID} & \thd{Requirement} & \thd{Owning module} & \thd{Verified by} \\
+  \midrule
+  \endfirsthead
+  \rowcolor{ceTeal}\thd{ID} & \thd{Requirement} & \thd{Owning module} & \thd{Verified by} \\
+  \midrule
+  \endhead
+  FR-1 & Prerequisite enforcement on registration & Academic & \texttt{test\_academic.py::test\_prerequisites\_\dots} \\
+  FR-2 & Exam conflict detection (room/invigilator/student) & Academic & \texttt{test\_academic.py::test\_exam\_conflicts} \\
+  FR-3 & Grade appeal preserves original mark & Academic & \texttt{test\_academic.py::test\_prerequisites\_results\_appeals\_and\_outbox} \\
+  FR-4 & At-risk rule (attendance / consecutive failures) & Academic & \texttt{test\_academic.py::test\_attendance\_and\_risk\_endpoints} \\
+  FR-5 & Exactly-once invoicing under duplicate events & Finance & \texttt{test\_finance.py::test\_enrollment\_events\_are\_idempotent\_\dots} \\
+  FR-6 & ACID payment + ledger posting, rollback on fault & Finance & \texttt{test\_finance.py::test\_payment\_and\_ledger\_roll\_back\_together} \\
+  FR-7 & Campaign ROI attribution & Finance & \texttt{test\_finance.py::test\_expenses\_campaign\_roi\_and\_reports} \\
+  FR-8 & Monthly report scheduler, no duplicates & Finance & \texttt{test\_finance.py::test\_monthly\_scheduler\_catches\_up\_once} \\
+  FR-9 & Payroll blocked until rule set approved & HR & \texttt{test\_hr.py::test\_payroll\_requires\_approved\_rules\_\dots} \\
+  FR-10 & QR challenge expiry and tenant binding & HR & \texttt{test\_hr.py::test\_qr\_attendance\_is\_signed\_expiring\_\dots} \\
+  FR-11 & Leave balance cannot be overdrawn (concurrency) & HR & \texttt{test\_hr.py::test\_leave\_workflow\_balances\_\dots} \\
+  FR-12 & Cross-tenant access denied & Identity + all & \texttt{test\_academic.py::test\_tenant\_and\_role\_isolation}, equivalents in other services \\
+  FR-13 & Refresh-token rotation and reuse detection & Identity & \texttt{test\_sessions.py::test\_refresh\_rotation\_and\_reuse\_\dots} \\
+  FR-14 & Account lockout after failed attempts & Identity & \texttt{test\_sessions.py::test\_lockout\_is\_persisted\_\dots} \\
+  \bottomrule
+\end{longtable}
+
+\section{Cited Sources and Third-Party Material}
+\label{app:sources}
+
+\subsection{Statutory Payroll Rate Sources}
+The draft CNPS/IRPP rule set shipped with the demonstration data cites the
+following official sources; an HR officer must verify each rate against the
+current version of these publications and record the verification before
+approving the rule set for use (\cref{sec:hr-module}):
+\begin{itemize}[leftmargin=1.4em]
+  \item Direction G\'en\'erale des Imp\^ots, \textit{Code G\'en\'eral des
+    Imp\^ots}, IRPP salary provisions (professional-expense allowance,
+    annual abatement, progressive scale, CAC) --
+    \url{https://www.impots.cm/fr/documentation}
+  \item Direction G\'en\'erale des Imp\^ots, \textit{Circulaire portant
+    instructions relatives \`a l'application de la Loi de Finances 2026} --
+    \url{https://www.impots.cm/fr/actualites/circulaire-lf-2026}
+  \item Caisse Nationale de Pr\'evoyance Sociale (CNPS) contribution schedule
+    (pension, family allowance, work-injury; contribution ceiling) --
+    \url{https://www.cnps.cm/}
+\end{itemize}
+
+\subsection{Third-Party Software}
+Campus ERP is built on open-source software including FastAPI, SQLAlchemy,
+Pydantic, PyJWT, Argon2-cffi, pika, ReportLab, qrcode, React, Vite,
+TanStack Query, Recharts, Lucide, PostgreSQL, RabbitMQ, NGINX, Prometheus,
+Grafana, Loki and Fluent Bit, each used under its respective open-source
+licence. No proprietary third-party code was reused.
+
+\subsection{AI-Assistance Disclosure}
+See \cref{sec:limitations} for the full academic-integrity disclosure
+regarding AI pair-programming assistance used while developing this project
+and drafting this report.

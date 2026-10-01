@@ -79,7 +79,7 @@ aggregate endpoint exercised in the test suite.
       \texttt{pickle} or other unsafe deserialization. \\
     A09 Security Logging and Monitoring Failures & Structured, correlated
       logs shipped to a central store (Loki) with request IDs; Prometheus
-      al-worthy metrics for error rate and broker backlog. \\
+      alert-worthy metrics for error rate and broker backlog. \\
     A05 Security Misconfiguration & Only the gateway publishes ports; database
       and broker ports are on an internal Docker network; containers run as a
       non-root user; strict CORS/allowed-origin checks. \\
@@ -94,6 +94,9 @@ out-of-band from the refresh cookie, mitigating CSRF; all API responses set
 \texttt{X-Content-Type-Options: nosniff} and a restrictive
 \texttt{Content-Security-Policy}, mitigating stored/reflected XSS in
 combination with React's default output escaping.
+
+\AppFigure{admin-users-roles}{0.92}{Institution-scoped user and role management screen: changing a role immediately revokes that user's active sessions}
+\AppFigure{admin-institutions}{0.92}{Platform-operator view of isolated institutions (tenants), each with an independent membership count}
 
 \subsection{Transport and Webhook Security}
 The mobile-money simulator's callback is authenticated by an HMAC-SHA256

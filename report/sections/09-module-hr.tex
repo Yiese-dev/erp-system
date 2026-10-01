@@ -1,0 +1,54 @@
+\section{Administration \& Human Resource Module}
+\label{sec:hr-module}
+
+\subsection{Functional Requirements}
+\begin{reqlist}
+  \setcounter{reqlisti}{19}
+  \item Recruitment moves an applicant through
+    applied $\to$ screened $\to$ interview $\to$ offered $\to$ hired/rejected;
+    hiring atomically creates the employee record and initial leave
+    entitlements.
+  \item Payroll is computed from an editable, effective-dated, source-cited
+    \emph{rule set} covering CNPS pension, family-allowance and work-injury
+    contributions (employee and employer shares, with a monthly
+    contribution ceiling) and the IRPP/PAYE progressive scale with CAC,
+    following a professional-expense allowance and an annual abatement.
+  \item \textbf{Statutory-rate governance (explicit, honest statement).} A
+    rule set is created in \texttt{draft} status and cannot be used to run
+    payroll until an HR officer records, in an approval note, which official
+    publication they verified each rate against, and explicitly approves it.
+    This governance gate exists because payroll tax law changes over time and
+    must never be hard-coded as if permanently correct; the sources actually
+    consulted while preparing this submission are listed in
+    Appendix~\ref{app:sources}, together with an explicit note on which
+    figures still require the officer's sign-off before the system is used
+    for anything beyond a classroom demonstration.
+  \item A finalized payroll run is immutable and unique per employee per
+    period; each payslip itemises every employee deduction and every
+    employer contribution separately, and finalisation notifies every paid
+    employee with a login.
+  \item Employee attendance uses a kiosk-displayed, HMAC-signed, 60-second
+    expiring QR challenge -- not a static, reusable employee identifier, and
+    not biometric hardware (an explicitly permitted documented substitute).
+    Scanning or typing the underlying code checks the employee in, and a
+    second scan the same day checks them out.
+  \item Leave requests are checked against the employee's remaining
+    entitlement (including other pending requests) before submission is
+    accepted; approval and balance decrement happen under a database row
+    lock so two concurrent approvals cannot overdraw the entitlement; an
+    employee can never approve their own request.
+  \item Performance reviews record goals, a 1--5 rating and reviewer
+    comments; a completed review is locked, and the employee is notified.
+  \item Physical assets (tag, category, condition, assignment) and
+    consumable inventory (an append-only stock-movement ledger) are tracked
+    with concurrency-safe checks that block double assignment and negative
+    stock; low stock triggers an in-app notification to HR.
+  \item Critical events (leave decisions, low stock, completed payroll) are
+    persisted as in-app notifications and additionally queued for email
+    delivery; a transient mail-server outage never blocks or reverses the
+    underlying business decision.
+\end{reqlist}
+
+\subsection{Screens}
+\AppFigure{hr-leave-requests}{0.94}{Leave request approval screen: an employee cannot approve their own request}
+\AppFigure{hr-checkin}{0.6}{Employee self-service QR check-in screen}

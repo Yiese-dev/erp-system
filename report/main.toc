@@ -1,0 +1,65 @@
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Purpose}{1}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Scope}{1}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Definitions, Acronyms and Abbreviations}{1}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}References}{2}{subsection.1.4}%
+\contentsline {subsection}{\numberline {1.5}Document Overview}{2}{subsection.1.5}%
+\contentsline {section}{\numberline {2}Overall Description}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Product Perspective}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Product Functions}{2}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}User Classes and Characteristics}{3}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Operating Environment}{3}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Design and Implementation Constraints}{3}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Assumptions and Dependencies}{4}{subsection.2.6}%
+\contentsline {section}{\numberline {3}Architecture}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Microservices Decomposition}{5}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}API Gateway}{5}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}API Versioning and Documentation}{6}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Service Discovery}{6}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Asynchronous Messaging}{6}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Background Workers}{6}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.7}Observability}{6}{subsection.3.7}%
+\contentsline {section}{\numberline {4}Security Design}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Authentication and Session Lifecycle}{7}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Authorization}{8}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Multi-Tenant Isolation}{8}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}OWASP Top~10 (2021) Mitigation Summary}{9}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Transport and Webhook Security}{10}{subsection.4.5}%
+\contentsline {section}{\numberline {5}Data Design}{10}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Normalization (3NF)}{10}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Entity-Relationship Diagram}{11}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Indexing Strategy}{11}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Transaction Management (ACID)}{12}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Backup and Point-in-Time Recovery}{12}{subsection.5.5}%
+\contentsline {section}{\numberline {6}UML Diagram Suite}{12}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Use-Case Diagram}{13}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Class Diagram}{14}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Sequence Diagrams}{14}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}Enrollment-to-Invoice (mandatory cross-service asynchronous workflow)}{15}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}Mobile-Money Payment and Ledger Posting}{16}{subsubsection.6.3.2}%
+\contentsline {subsubsection}{\numberline {6.3.3}Authentication and Refresh-Token Rotation}{17}{subsubsection.6.3.3}%
+\contentsline {subsection}{\numberline {6.4}Deployment Diagram}{18}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Academic Module}{18}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Functional Requirements}{18}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Screens}{19}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Marketing \& Finance Module}{20}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Functional Requirements}{20}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Screens}{21}{subsection.8.2}%
+\contentsline {section}{\numberline {9}Administration \& Human Resource Module}{22}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Functional Requirements}{22}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Screens}{23}{subsection.9.2}%
+\contentsline {section}{\numberline {10}Non-Functional Evidence, Testing and DevOps}{24}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Performance and Load Testing}{24}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Scalability Strategy}{24}{subsection.10.2}%
+\contentsline {subsection}{\numberline {10.3}Testing and Quality Assurance}{24}{subsection.10.3}%
+\contentsline {subsection}{\numberline {10.4}DevOps: Containerisation and CI/CD}{25}{subsection.10.4}%
+\contentsline {subsection}{\numberline {10.5}Deployment Guide (Summary)}{25}{subsection.10.5}%
+\contentsline {section}{\numberline {11}Limitations, Future Work and Academic Integrity}{25}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Known Limitations}{25}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Future Work}{26}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Academic Integrity and AI-Assistance Disclosure}{26}{subsection.11.3}%
+\contentsline {section}{\numberline {A}Requirement Traceability Matrix}{26}{section.A}%
+\contentsline {section}{\numberline {B}Cited Sources and Third-Party Material}{27}{section.B}%
+\contentsline {subsection}{\numberline {B.1}Statutory Payroll Rate Sources}{27}{subsection.B.1}%
+\contentsline {subsection}{\numberline {B.2}Third-Party Software}{27}{subsection.B.2}%
+\contentsline {subsection}{\numberline {B.3}AI-Assistance Disclosure}{27}{subsection.B.3}%

@@ -1,0 +1,43 @@
+\section{Academic Module}
+\label{sec:academic-module}
+
+\subsection{Functional Requirements}
+\begin{reqlist}
+  \item Administrators can create, update and archive programmes and courses;
+    archiving is used instead of deletion whenever a record is referenced by
+    historical data, so transcripts remain valid.
+  \item Course prerequisites are modelled as a directed graph; adding a
+    prerequisite that would create a cycle is rejected.
+  \item Registering a student for a term validates that every selected
+    course's prerequisites are satisfied by a \emph{published, passing}
+    result -- a draft or unpublished grade never satisfies a prerequisite.
+  \item A confirmed registration and its enrollments are recorded in one
+    transaction together with an outbox event that ultimately triggers
+    tuition invoicing (\cref{fig:d3a-sequence-enrollment-invoice}).
+  \item Instructors record assessment weights (summing to exactly 100\% before
+    publication) and per-student marks; publishing computes the weighted
+    final score, letter grade and pass/fail outcome for every enrolled
+    student at once.
+  \item Attendance is recorded per lesson per enrolled student; a late arrival
+    counts as attended, and an excused absence is excluded from the
+    computed rate.
+  \item Examinations are scheduled with automatic conflict detection across
+    room, invigilator and any student enrolled in two overlapping offerings;
+    a database-level advisory lock prevents two concurrent bookings from
+    both passing the conflict check.
+  \item Students may appeal a published result within a configurable window
+    (default 14 days); approval creates a new, audited result revision while
+    preserving the original mark, never overwriting it.
+  \item A documented, transparent rule flags a student as at-risk in a
+    course when their attendance falls below a configurable threshold
+    (default 75\%) or their latest two published assessment scores are both
+    below a configurable failing mark (default 50) -- explicitly a rule, not
+    a predictive model.
+  \item Students and instructors can export a transcript or attendance
+    summary as a branded PDF, generated server-side from currently published
+    data only.
+\end{reqlist}
+
+\subsection{Screens}
+\AppFigure{03-academic-exams}{0.94}{Examination timetable with conflict-checked scheduling}
+\AppFigure{academic-results-appeals}{0.94}{Student self-service: published results and the 14-day grade-appeal window}
